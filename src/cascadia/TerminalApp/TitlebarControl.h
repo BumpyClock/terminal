@@ -30,6 +30,7 @@ namespace winrt::TerminalApp::implementation
         void Content(IInspectable content);
 
         void SetWindowVisualState(WindowVisualState visualState);
+        void SetDashboardHost(const Windows::UI::Xaml::Controls::Grid& host);
         void Root_SizeChanged(const IInspectable& sender, const Windows::UI::Xaml::SizeChangedEventArgs& e);
         void FullscreenChanged(const bool fullscreen);
 
@@ -41,6 +42,7 @@ namespace winrt::TerminalApp::implementation
 
     private:
         std::shared_ptr<::TerminalApp::GitHubDashboard> _githubDashboard;
+        winrt::weak_ref<Windows::UI::Xaml::Controls::Grid> _dashboardHost;
         std::shared_ptr<std::atomic<bool>> _avatarRequest{ std::make_shared<std::atomic<bool>>(false) };
         std::string _avatarUrl;
         safe_void_coroutine _LoadGitHubAvatar();

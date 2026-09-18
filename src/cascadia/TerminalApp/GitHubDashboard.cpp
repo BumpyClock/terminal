@@ -6,6 +6,7 @@
 #include <array>
 #include <format>
 #include <cmath>
+#include <limits>
 
 using namespace winrt;
 using namespace winrt::Windows::Foundation;
@@ -26,6 +27,13 @@ namespace TerminalApp
 
     namespace
     {
+        constexpr double dashboardInset{ 8 };
+        constexpr double dashboardGap{ 4 };
+        constexpr double dashboardChrome{ 18 };
+        constexpr double dashboardMaxWidth{ 420 };
+        constexpr double dashboardMaxHeight{ 720 };
+        constexpr double dashboardMinimumListHeight{ 32 };
+
         TextBlock Text(const hstring& value, const double size = 14)
         {
             TextBlock text;
@@ -176,6 +184,32 @@ namespace TerminalApp
         }
     }
 
+    GitHubDashboardPlacement CalculateGitHubDashboardPlacement(const Size& hostSize, const Rect& anchorBounds) noexcept
+    {
+        const auto hostWidth = std::max(0.0, static_cast<double>(hostSize.Width));
+        const auto hostHeight = std::max(0.0, static_cast<double>(hostSize.Height));
+        const auto horizontalInset = hostWidth >= 2 * dashboardInset ? dashboardInset : 0.0;
+        const auto verticalInset = hostHeight >= 2 * dashboardInset ? dashboardInset : 0.0;
+        const auto width = std::min(dashboardMaxWidth, hostWidth - 2 * horizontalInset);
+        const auto maximumHeight = std::min(dashboardMaxHeight, hostHeight - 2 * verticalInset);
+
+        const auto minimumX = horizontalInset;
+        const auto maximumX = hostWidth - horizontalInset - width;
+        const auto preferredX = static_cast<double>(anchorBounds.X + anchorBounds.Width) - width;
+        const auto x = std::clamp(preferredX, minimumX, maximumX);
+
+        const auto preferredY = static_cast<double>(anchorBounds.Y + anchorBounds.Height) + dashboardGap;
+        const auto y = std::min(hostHeight, std::max(verticalInset, preferredY));
+        const auto height = std::min(maximumHeight, std::max(0.0, hostHeight - verticalInset - y));
+        return { x, y, width, height };
+    }
+
+    bool ShouldUseCompactGitHubDashboardLayout(const double availableHeight, const double fixedContentHeight) noexcept
+    {
+        return std::max(0.0, availableHeight) <
+               std::max(0.0, fixedContentHeight) + dashboardMinimumListHeight;
+    }
+
     std::shared_ptr<GitHubDashboard> GitHubDashboard::Create(GitHub::Update accountChanged)
     {
         auto dashboard = std::make_shared<GitHubDashboard>();
@@ -189,7 +223,8 @@ namespace TerminalApp
         const auto weak = weak_from_this();
         _cachePath = GitHub::CachePath();
         _root.Width(402);
-        for (const auto unit : { GridUnitType::Auto, GridUnitType::Auto, GridUnitType::Auto, GridUnitType::Auto, GridUnitType::Star, GridUnitType::Auto })
+        _root.Height(702);
+        for (const auto unit : { GridUnitType::Auto, GridUnitType::Auto, GridUnitType::Auto, GridUnitType::Auto, GridUnitType::Star })
         {
             RowDefinition row;
             row.Height({ 1, unit });
@@ -283,19 +318,19 @@ namespace TerminalApp
         _usage.Spacing(6);
         overview.Children().Append(_usage);
 
-        ListBox sections;
-        sections.FontSize(14);
-        sections.BorderThickness({ 0, 0, 0, 0 });
-        sections.Background(SolidColorBrush{ Colors::Transparent() });
-        sections.Padding({ 0, 0, 0, 0 });
-        sections.ItemsPanel(Windows::UI::Xaml::Markup::XamlReader::Load(
-                                LR"(<ItemsPanelTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+        _sections.FontSize(14);
+        _sections.BorderThickness({ 0, 0, 0, 0 });
+        _sections.Background(SolidColorBrush{ Colors::Transparent() });
+        _sections.Padding({ 0, 0, 0, 0 });
+        _sections.ItemsPanel(Windows::UI::Xaml::Markup::XamlReader::Load(
+                                 LR"(<ItemsPanelTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
                     <StackPanel Orientation="Horizontal" />
                 </ItemsPanelTemplate>)")
-                                .as<ItemsPanelTemplate>());
-        ScrollViewer::SetHorizontalScrollBarVisibility(sections, ScrollBarVisibility::Disabled);
-        ScrollViewer::SetVerticalScrollBarVisibility(sections, ScrollBarVisibility::Disabled);
-        AutomationProperties::SetName(sections, Label(L"GitHubDashboard"));
+                                 .as<ItemsPanelTemplate>());
+        ScrollViewer::SetHorizontalScrollBarVisibility(_sections, ScrollBarVisibility::Auto);
+        ScrollViewer::SetHorizontalScrollMode(_sections, ScrollMode::Enabled);
+        ScrollViewer::SetVerticalScrollBarVisibility(_sections, ScrollBarVisibility::Disabled);
+        AutomationProperties::SetName(_sections, Label(L"GitHubDashboard"));
         const std::array names{ L"GitHubActivity", L"GitHubMyPrs", L"GitHubReviews", L"GitHubRepos" };
         for (size_t i = 0; i < names.size(); ++i)
         {
@@ -304,18 +339,36 @@ namespace TerminalApp
             item.FontSize(14);
             item.MinHeight(32);
             item.Padding({ 10, 4, 10, 4 });
-            sections.Items().Append(item);
+            _sections.Items().Append(item);
         }
-        sections.SelectedIndex(0);
-        sections.SelectionChanged([weak](const IInspectable& sender, const auto&) {
+        _sections.SelectedIndex(0);
+        _sections.SelectionChanged([weak](const IInspectable& sender, const auto&) {
             if (const auto self = weak.lock())
             {
                 self->_selectedSection = sender.as<ListBox>().SelectedIndex();
                 self->_RenderSelected();
             }
         });
-        overview.Children().Append(sections);
+        _refreshButton.Content(Windows::UI::Xaml::Markup::XamlReader::Load(
+            LR"(<FontIcon xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                FontFamily="{ThemeResource SymbolThemeFontFamily}" FontSize="14" Glyph="&#xE72C;" />)"));
+        _refreshButton.Width(32);
+        _refreshButton.MinWidth(32);
+        _refreshButton.Height(32);
+        _refreshButton.Padding({ 0, 0, 0, 0 });
+        _refreshButton.VerticalAlignment(VerticalAlignment::Center);
+        _refreshButton.Background(SolidColorBrush{ Colors::Transparent() });
+        AutomationProperties::SetName(_refreshButton, Label(L"GitHubRefresh"));
+        ToolTipService::SetToolTip(_refreshButton, box_value(Label(L"GitHubRefresh") + L" (F5)"));
+        _refreshButton.Click([weak](const auto&, const auto&) {
+            if (auto self = weak.lock())
+            {
+                self->_Refresh(GitHub::RefreshReason::Manual);
+            }
+        });
+        overview.Children().Append(Pair(_sections, _refreshButton));
         _scroll.VerticalScrollBarVisibility(ScrollBarVisibility::Auto);
+        _scroll.VerticalScrollMode(ScrollMode::Enabled);
         _scroll.HorizontalScrollBarVisibility(ScrollBarVisibility::Disabled);
         _scroll.HorizontalScrollMode(ScrollMode::Disabled);
         _scroll.Margin({ 8, 0, 8, 0 });
@@ -326,100 +379,31 @@ namespace TerminalApp
         Grid::SetRow(_scroll, 4);
         _root.Children().Append(_scroll);
 
-        StackPanel footer;
-        footer.Orientation(Orientation::Horizontal);
-        footer.Spacing(12);
-        footer.Margin({ 8, 8, 8, 0 });
-        Button preferences;
-        preferences.Content(box_value(Label(L"GitHubPreferences")));
-        Flyout preferencesFlyout;
-        StackPanel preferencesPanel;
-        preferencesPanel.Spacing(12);
-        preferencesPanel.MaxWidth(360);
-        preferencesPanel.Children().Append(Text(Label(L"GitHubRefreshInterval")));
-        ComboBox interval;
-        for (const auto minutes : { 1, 5, 15, 30, 60 })
-        {
-            interval.Items().Append(box_value(to_hstring(minutes)));
-        }
-        interval.SelectedIndex(1);
-        AutomationProperties::SetName(interval, Label(L"GitHubRefreshInterval"));
-        interval.SelectionChanged([weak](const IInspectable& sender, const auto&) {
-            if (auto self = weak.lock())
-            {
-                const auto interval = sender.as<ComboBox>();
-                constexpr std::array values{ 1, 5, 15, 30, 60 };
-                const auto index = interval.SelectedIndex();
-                if (index >= 0 && index < static_cast<int32_t>(values.size()))
-                {
-                    self->_timer.Interval(std::chrono::minutes{ values[index] });
-                }
-            }
-        });
-        preferencesPanel.Children().Append(interval);
-        preferencesPanel.Children().Append(Text(Label(L"GitHubCellSize")));
-        ComboBox size;
-        for (const auto key : { L"GitHubSmall", L"GitHubMedium", L"GitHubLarge" })
-        {
-            size.Items().Append(box_value(Label(key)));
-        }
-        size.SelectedIndex(0);
-        AutomationProperties::SetName(size, Label(L"GitHubCellSize"));
-        size.SelectionChanged([weak](const IInspectable& sender, const auto&) {
-            const auto size = sender.as<ComboBox>();
-            if (auto self = weak.lock(); self && size.SelectedIndex() >= 0)
-            {
-                self->_cellSize = 6 + 2 * size.SelectedIndex();
-                self->_RenderCalendar();
-            }
-        });
-        preferencesPanel.Children().Append(size);
-        preferencesPanel.Children().Append(Text(Label(L"GitHubPrivacy"), 12));
-        preferencesFlyout.Content(preferencesPanel);
-        preferences.Flyout(preferencesFlyout);
-        footer.Children().Append(preferences);
-        _refreshButton.Content(box_value(Label(L"GitHubRefresh")));
-        _refreshButton.Click([weak](const auto&, const auto&) {
-            if (auto self = weak.lock())
-            {
-                self->_Refresh(GitHub::RefreshReason::Manual);
-            }
-        });
-        footer.Children().Append(_refreshButton);
-        Button close;
-        close.Content(box_value(Label(L"GitHubClose")));
-        close.Click([weak](const auto&, const auto&) {
-            if (auto self = weak.lock())
-            {
-                self->_flyout.Hide();
-            }
-        });
-        footer.Children().Append(close);
-        Grid::SetRow(footer, 5);
-        _root.Children().Append(footer);
-        _flyout.Content(_root);
-        _flyout.FlyoutPresenterStyle(Windows::UI::Xaml::Markup::XamlReader::Load(
-                                         LR"(<Style xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TargetType="FlyoutPresenter">
+        _overflow.HorizontalScrollBarVisibility(ScrollBarVisibility::Disabled);
+        _overflow.HorizontalScrollMode(ScrollMode::Disabled);
+        _overflow.VerticalScrollBarVisibility(ScrollBarVisibility::Disabled);
+        _overflow.VerticalScrollMode(ScrollMode::Disabled);
+        _overflow.Content(_root);
+        _presenter.Content(_overflow);
+        _presenter.Style(Windows::UI::Xaml::Markup::XamlReader::Load(
+                             LR"(<Style xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" TargetType="FlyoutPresenter">
                 <Setter Property="Padding" Value="8" />
                 <Setter Property="MinWidth" Value="0" />
                 <Setter Property="MaxWidth" Value="420" />
                 <Setter Property="MaxHeight" Value="720" />
                 <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                <Setter Property="TabNavigation" Value="Cycle" />
                 <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
                 <Setter Property="ScrollViewer.HorizontalScrollMode" Value="Disabled" />
                 <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
                 <Setter Property="ScrollViewer.VerticalScrollMode" Value="Disabled" />
             </Style>)")
-                                         .as<Style>());
-        _flyout.Placement(FlyoutPlacementMode::BottomEdgeAlignedRight);
-        _flyout.Closed([weak](const auto&, const auto&) {
-            if (auto self = weak.lock())
-            {
-                self->_visible = false;
-                self->_timer.Stop();
-                self->_cancelled->store(true);
-            }
-        });
+                             .as<Style>());
+        _presenter.HorizontalAlignment(HorizontalAlignment::Left);
+        _presenter.VerticalAlignment(VerticalAlignment::Top);
+        AutomationProperties::SetName(_presenter, Label(L"GitHubDashboard"));
         _root.ActualThemeChanged([weak](const auto&, const auto&) {
             if (auto self = weak.lock())
             {
@@ -427,13 +411,18 @@ namespace TerminalApp
             }
         });
         _root.KeyDown([weak](const auto&, const KeyRoutedEventArgs& args) {
-            if (args.Key() == Windows::System::VirtualKey::F5)
+            if (auto self = weak.lock())
             {
-                if (auto self = weak.lock())
+                if (args.Key() == Windows::System::VirtualKey::F5)
                 {
                     self->_Refresh(GitHub::RefreshReason::Manual);
+                    args.Handled(true);
                 }
-                args.Handled(true);
+                else if (args.Key() == Windows::System::VirtualKey::Escape)
+                {
+                    self->_Close(true);
+                    args.Handled(true);
+                }
             }
         });
         _timer.Interval(5min);
@@ -448,16 +437,147 @@ namespace TerminalApp
         _RenderSelected();
     }
 
-    void GitHubDashboard::Show(const FrameworkElement& anchor)
+    void GitHubDashboard::_AttachHost(const Grid& host)
     {
-        const auto size = anchor.XamlRoot().Size();
+        if (const auto current = _host.get(); current == host)
+        {
+            return;
+        }
+
+        if (const auto current = _host.get(); current && _hostAttached)
+        {
+            current.LayoutUpdated(_hostLayoutUpdated);
+            current.PointerPressed(_hostPointerPressed);
+            uint32_t index{};
+            if (current.Children().IndexOf(_presenter, index))
+            {
+                current.Children().RemoveAt(index);
+            }
+        }
+
+        _host = make_weak(host);
+        host.Background(SolidColorBrush{ Colors::Transparent() });
+        host.Children().Append(_presenter);
+        const auto weak = weak_from_this();
+        _hostLayoutUpdated = host.LayoutUpdated([weak](const auto&, const auto&) {
+            if (const auto self = weak.lock(); self && self->_visible)
+            {
+                self->_UpdatePlacement();
+            }
+        });
+        _hostPointerPressed = host.PointerPressed([weak](const auto&, const PointerRoutedEventArgs& args) {
+            if (const auto self = weak.lock(); self && self->_visible)
+            {
+                const auto point = args.GetCurrentPoint(self->_presenter).Position();
+                if (point.X < 0 || point.Y < 0 ||
+                    point.X > self->_presenter.ActualWidth() || point.Y > self->_presenter.ActualHeight())
+                {
+                    args.Handled(true);
+                    self->_Close(true);
+                }
+            }
+        });
+        _hostAttached = true;
+    }
+
+    void GitHubDashboard::_UpdatePlacement()
+    {
+        const auto host = _host.get();
+        const auto anchor = _anchor.get();
+        if (!host || !anchor || !anchor.XamlRoot())
+        {
+            return;
+        }
+
+        const auto anchorBounds = anchor.TransformToVisual(host).TransformBounds(
+            { 0, 0, static_cast<float>(anchor.ActualWidth()), static_cast<float>(anchor.ActualHeight()) });
+        const auto placement = CalculateGitHubDashboardPlacement(
+            { static_cast<float>(host.ActualWidth()), static_cast<float>(host.ActualHeight()) },
+            anchorBounds);
+        const auto interiorHeight = std::max(0.0, placement.height - dashboardChrome);
+        double fixedContentHeight{};
+        for (uint32_t row = 0; row < 4; ++row)
+        {
+            fixedContentHeight += _root.RowDefinitions().GetAt(row).ActualHeight();
+        }
+        const auto compactLayout = ShouldUseCompactGitHubDashboardLayout(interiorHeight, fixedContentHeight);
+
+        const auto widthChanged = std::isnan(_presenter.Width()) || std::abs(_presenter.Width() - placement.width) >= 0.5;
+        const auto heightChanged = std::isnan(_presenter.Height()) || std::abs(_presenter.Height() - placement.height) >= 0.5;
+        if (widthChanged)
+        {
+            _presenter.Width(placement.width);
+            _root.Width(std::max(0.0, placement.width - dashboardChrome));
+        }
+        if (heightChanged)
+        {
+            _presenter.Height(placement.height);
+        }
+        if (compactLayout != _compactLayout)
+        {
+            if (compactLayout)
+            {
+                _listScrollOffset = _scroll.VerticalOffset();
+            }
+            _compactLayout = compactLayout;
+            _overflow.VerticalScrollBarVisibility(compactLayout ? ScrollBarVisibility::Auto : ScrollBarVisibility::Disabled);
+            _overflow.VerticalScrollMode(compactLayout ? ScrollMode::Enabled : ScrollMode::Disabled);
+            if (!compactLayout)
+            {
+                _overflow.ChangeView(nullptr, 0.0, nullptr);
+                host.Dispatcher().RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal, [weak = weak_from_this()] {
+                    if (const auto self = weak.lock(); self && self->_visible && !self->_compactLayout)
+                    {
+                        self->_scroll.ChangeView(nullptr, self->_listScrollOffset, nullptr);
+                    }
+                });
+            }
+        }
+        if (compactLayout)
+        {
+            if (!std::isnan(_root.Height()))
+            {
+                _root.Height(std::numeric_limits<double>::quiet_NaN());
+            }
+        }
+        else if (heightChanged || std::isnan(_root.Height()) || std::abs(_root.Height() - interiorHeight) >= 0.5)
+        {
+            _root.Height(interiorHeight);
+        }
+
+        const auto margin = _presenter.Margin();
+        if (std::abs(margin.Left - placement.x) >= 0.5 || std::abs(margin.Top - placement.y) >= 0.5)
+        {
+            _presenter.Margin({ placement.x, placement.y, 0, 0 });
+        }
+        const auto hasUsableArea = placement.width > dashboardChrome && placement.height > dashboardChrome;
+        _presenter.Opacity(hasUsableArea ? 1.0 : 0.0);
+        _presenter.IsHitTestVisible(hasUsableArea);
+        host.IsHitTestVisible(hasUsableArea);
+    }
+
+    void GitHubDashboard::Show(const FrameworkElement& anchor, const Grid& host)
+    {
+        if (_visible)
+        {
+            _Close(true);
+            return;
+        }
+
+        _AttachHost(host);
+        _anchor = make_weak(anchor);
         _root.RequestedTheme(anchor.ActualTheme());
-        _root.Width(std::max(240.0, std::min(402.0, static_cast<double>(size.Width) - 48)));
-        _root.Height(std::max(120.0, std::min(702.0, static_cast<double>(size.Height) - 80)));
         _ApplySnapshot(_snapshot);
-        _RenderCalendar();
         _visible = true;
-        _flyout.ShowAt(anchor);
+        host.Visibility(Visibility::Visible);
+        host.IsHitTestVisible(true);
+        _UpdatePlacement();
+        host.Dispatcher().RunAsync(Windows::UI::Core::CoreDispatcherPriority::Normal, [weak = weak_from_this()] {
+            if (const auto self = weak.lock(); self && self->_visible)
+            {
+                self->_sections.Focus(FocusState::Programmatic);
+            }
+        });
         _timer.Start();
         if (_snapshot.login.empty() || std::chrono::steady_clock::now() - _lastRefresh >= 5min)
         {
@@ -467,9 +587,26 @@ namespace TerminalApp
 
     void GitHubDashboard::Close()
     {
+        _Close(false);
+    }
+
+    void GitHubDashboard::_Close(const bool restoreFocus)
+    {
+        _visible = false;
         _cancelled->store(true);
         _timer.Stop();
-        _flyout.Hide();
+        if (const auto host = _host.get())
+        {
+            host.IsHitTestVisible(false);
+            host.Visibility(Visibility::Collapsed);
+        }
+        if (restoreFocus)
+        {
+            if (const auto anchor = _anchor.get().try_as<Control>())
+            {
+                anchor.Focus(FocusState::Programmatic);
+            }
+        }
     }
 
     safe_void_coroutine GitHubDashboard::_Refresh(const GitHub::RefreshReason reason)

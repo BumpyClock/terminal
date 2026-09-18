@@ -1027,32 +1027,8 @@ For all available options, run 'wt new-tab --help'.</value>
   <data name="GitHubRepos" xml:space="preserve">
     <value>Repos</value>
   </data>
-  <data name="GitHubPreferences" xml:space="preserve">
-    <value>Preferences</value>
-  </data>
   <data name="GitHubRefresh" xml:space="preserve">
     <value>Refresh</value>
-  </data>
-  <data name="GitHubClose" xml:space="preserve">
-    <value>Close</value>
-  </data>
-  <data name="GitHubRefreshInterval" xml:space="preserve">
-    <value>Refresh interval while open (minutes)</value>
-  </data>
-  <data name="GitHubCellSize" xml:space="preserve">
-    <value>Contribution cell size</value>
-  </data>
-  <data name="GitHubSmall" xml:space="preserve">
-    <value>Small</value>
-  </data>
-  <data name="GitHubMedium" xml:space="preserve">
-    <value>Medium</value>
-  </data>
-  <data name="GitHubLarge" xml:space="preserve">
-    <value>Large</value>
-  </data>
-  <data name="GitHubPrivacy" xml:space="preserve">
-    <value>GitHub metadata, including private repository information, is saved in github-dashboard.json beside Terminal's settings. Saved data expires after seven days and is marked unverified until the account is checked. No credentials are stored. Preferences remain window-local. Refresh pauses when the panel closes.</value>
   </data>
   <data name="GitHubSavedUnverified" xml:space="preserve">
     <value>Account verification pending - data may be saved or still refreshing.</value>

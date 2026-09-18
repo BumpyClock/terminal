@@ -23,6 +23,7 @@ namespace TerminalApp
         TitlebarControl(UInt64 parentWindowHandle);
         void SetWindowVisualState(WindowVisualState visualState);
         void FullscreenChanged(Boolean fullscreen);
+        void SetDashboardHost(Windows.UI.Xaml.Controls.Grid host);
 
         void HoverButton(CaptionButton button);
         void PressButton(CaptionButton button);

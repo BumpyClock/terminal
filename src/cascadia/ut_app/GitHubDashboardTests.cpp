@@ -3,6 +3,7 @@
 
 #include "precomp.h"
 #include "../TerminalApp/GitHubDashboardData.h"
+#include "../TerminalApp/GitHubDashboardLayout.h"
 #include <condition_variable>
 #include <mutex>
 
@@ -83,6 +84,58 @@ namespace
 class GitHubDashboardTests
 {
     TEST_CLASS(GitHubDashboardTests);
+
+    TEST_METHOD(DashboardPlacementTracksAnchorAndClampsToHost)
+    {
+        const auto placement = TerminalApp::CalculateGitHubDashboardPlacement(
+            { 1000, 800 },
+            { 900, 0, 40, 32 });
+        VERIFY_ARE_EQUAL(520.0, placement.x);
+        VERIFY_ARE_EQUAL(36.0, placement.y);
+        VERIFY_ARE_EQUAL(420.0, placement.width);
+        VERIFY_ARE_EQUAL(720.0, placement.height);
+
+        const auto narrow = TerminalApp::CalculateGitHubDashboardPlacement(
+            { 300, 250 },
+            { 240, 0, 40, 32 });
+        VERIFY_ARE_EQUAL(8.0, narrow.x);
+        VERIFY_ARE_EQUAL(36.0, narrow.y);
+        VERIFY_ARE_EQUAL(284.0, narrow.width);
+        VERIFY_ARE_EQUAL(206.0, narrow.height);
+    }
+
+    TEST_METHOD(DashboardPlacementStaysInVerySmallHost)
+    {
+        const auto shortHost = TerminalApp::CalculateGitHubDashboardPlacement(
+            { 300, 150 },
+            { 240, 60, 40, 32 });
+        VERIFY_ARE_EQUAL(96.0, shortHost.y);
+        VERIFY_ARE_EQUAL(46.0, shortHost.height);
+        VERIFY_IS_TRUE(shortHost.y + shortHost.height <= 150);
+
+        const auto anchorBelowHost = TerminalApp::CalculateGitHubDashboardPlacement(
+            { 300, 80 },
+            { 240, 60, 40, 32 });
+        VERIFY_ARE_EQUAL(80.0, anchorBelowHost.y);
+        VERIFY_ARE_EQUAL(0.0, anchorBelowHost.height);
+
+        const auto tinyHost = TerminalApp::CalculateGitHubDashboardPlacement(
+            { 10, 10 },
+            { 240, 60, 40, 32 });
+        VERIFY_IS_TRUE(tinyHost.x >= 0);
+        VERIFY_IS_TRUE(tinyHost.y >= 0);
+        VERIFY_IS_TRUE(tinyHost.width >= 0);
+        VERIFY_IS_TRUE(tinyHost.height >= 0);
+        VERIFY_IS_TRUE(tinyHost.x + tinyHost.width <= 10);
+        VERIFY_IS_TRUE(tinyHost.y + tinyHost.height <= 10);
+    }
+
+    TEST_METHOD(DashboardCompactLayoutKeepsAListViewport)
+    {
+        VERIFY_IS_FALSE(TerminalApp::ShouldUseCompactGitHubDashboardLayout(300, 200));
+        VERIFY_IS_TRUE(TerminalApp::ShouldUseCompactGitHubDashboardLayout(220, 200));
+        VERIFY_IS_TRUE(TerminalApp::ShouldUseCompactGitHubDashboardLayout(0, 0));
+    }
 
     TEST_METHOD(PullRequestStatesRemainIndependent)
     {

@@ -395,6 +395,14 @@ void NonClientIslandWindow::Initialize()
 
     Controls::Grid::SetRow(_titlebar, 0);
 
+    _dashboardHost = Controls::Grid{};
+    _dashboardHost.Visibility(Visibility::Collapsed);
+    _dashboardHost.IsHitTestVisible(false);
+    Controls::Grid::SetRowSpan(_dashboardHost, 2);
+    Controls::Canvas::SetZIndex(_dashboardHost, 1);
+    _rootGrid.Children().Append(_dashboardHost);
+    _titlebar.SetDashboardHost(_dashboardHost);
+
     // GH#3440 - When the titlebar is loaded (officially added to our UI tree),
     // then make sure to update its visual state to reflect if we're in the
     // maximized state on launch.

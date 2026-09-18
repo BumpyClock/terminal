@@ -89,6 +89,7 @@
     <ClInclude Include="CommandPaletteItems.h" />
     <ClInclude Include="Jumplist.h" />
     <ClInclude Include="GitHubDashboard.h" />
+    <ClInclude Include="GitHubDashboardLayout.h" />
     <ClInclude Include="GitHubDashboardData.h" />
     <ClInclude Include="LanguageProfileNotifier.h" />
     <ClInclude Include="MinMaxCloseControl.h">

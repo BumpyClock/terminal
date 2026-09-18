@@ -272,11 +272,13 @@ Install GitHub CLI (`gh`) on PATH and sign in from your shell with
 retrieving or storing its credentials. `GH_TOKEN` and `GITHUB_TOKEN` can override
 the CLI's saved account. The dashboard supports GitHub.com, not enterprise hosts.
 
-Select **Refresh** or press **F5** in the panel to fetch every section. Automatic
-refresh runs only while the panel is open; **Preferences** selects its interval
-and contribution cell size for this Terminal window. Escape or **Close** dismisses
-the panel without closing Terminal. Use the arrow keys, Home, and End on the
-contribution calendar to inspect individual days.
+Select the **Refresh** icon at the right of the tabs or press **F5** in the panel
+to fetch every section. Automatic refresh runs every five minutes while the panel
+is open. Press **Escape** or click outside the panel to dismiss it without closing
+Terminal. Use the arrow keys, Home, and End on the contribution calendar to inspect
+individual days. The panel remains anchored to the titlebar avatar and adapts to
+window resize, maximize, and restore without resetting its current tab or scroll
+position.
 
 The lists contain up to 30 entries. Activity groups pull-request events from
 the fetched window, which GitHub may delay. PR state, review decisions, and check
@@ -302,9 +304,10 @@ leaves saved data explicitly unverified.
 Independent sections refresh concurrently and appear as they complete, so a slow
 quota request does not hold up the lists. Automatic refresh reuses successful
 data for five minutes (15 minutes for repositories and contributions); Refresh
-and F5 bypass that freshness window. Only the selected list is rendered and
-scrolls; the compact section selector and footer remain fixed. Preferences remain
-window-local. Closing the panel cancels in-flight requests; notification-area
+and F5 bypass that freshness window. Only the selected list is rendered. At normal
+window heights, the list scrolls while the section selector and refresh icon remain
+fixed. Short windows allow the whole panel to scroll so all controls remain
+reachable. Closing the panel cancels in-flight requests; notification-area
 lifecycle and background refresh while hidden are not included.
 
 Copilot quota uses GitHub's undocumented read-only `copilot_internal/user`

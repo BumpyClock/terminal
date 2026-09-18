@@ -84,6 +84,11 @@ namespace winrt::TerminalApp::implementation
         ContentRoot().Content(content);
     }
 
+    void TitlebarControl::SetDashboardHost(const Windows::UI::Xaml::Controls::Grid& host)
+    {
+        _dashboardHost = winrt::make_weak(host);
+    }
+
     void TitlebarControl::Root_SizeChanged(const IInspectable& /*sender*/,
                                            const Windows::UI::Xaml::SizeChangedEventArgs& /*e*/)
     {
@@ -110,6 +115,11 @@ namespace winrt::TerminalApp::implementation
 
     void TitlebarControl::GitHub_Click(const IInspectable&, const Windows::UI::Xaml::RoutedEventArgs&)
     {
+        const auto host = _dashboardHost.get();
+        if (!host)
+        {
+            return;
+        }
         if (!_githubDashboard)
         {
             _githubDashboard = ::TerminalApp::GitHubDashboard::Create([weak = get_weak()](const auto& snapshot) {
@@ -120,7 +130,7 @@ namespace winrt::TerminalApp::implementation
                 }
             });
         }
-        _githubDashboard->Show(GitHubButton());
+        _githubDashboard->Show(GitHubButton(), host);
     }
 
     void TitlebarControl::_SetGitHubAvatar(const std::string& login, const std::string& url)
