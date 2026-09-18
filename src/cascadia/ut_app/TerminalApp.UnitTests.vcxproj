@@ -22,6 +22,7 @@
   <!-- ========================= Cpp Files ======================== -->
   <ItemGroup>
     <ClCompile Include="JsonUtilsTests.cpp" />
+    <ClCompile Include="GitHubDashboardTests.cpp" />
     <ClCompile Include="FzfTests.cpp" />
     <ClCompile Include="precomp.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>

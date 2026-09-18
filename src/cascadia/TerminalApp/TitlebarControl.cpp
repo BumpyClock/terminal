@@ -7,6 +7,7 @@
 #include "pch.h"
 
 #include "TitlebarControl.h"
+#include "GitHubDashboard.h"
 #include "../../types/inc/ColorFix.hpp"
 
 #include "TitlebarControl.g.cpp"
@@ -19,6 +20,16 @@ namespace winrt::TerminalApp::implementation
         _window{ reinterpret_cast<HWND>(handle) }
     {
         InitializeComponent();
+        Loaded([this](const auto&, const auto&) { _LoadGitHubAvatar(); });
+        Unloaded([this](const auto&, const auto&) {
+            _avatarRequest->store(true);
+            _avatarUrl.clear();
+            ::TerminalApp::GitHubDashboard::SetAvatar(GitHubAvatar(), {});
+            if (_githubDashboard)
+            {
+                _githubDashboard->Close();
+            }
+        });
 
         // Register our event handlers on the MMC buttons.
         MinMaxCloseControl().MinimizeClick({ this, &TitlebarControl::Minimize_Click });
@@ -79,7 +90,7 @@ namespace winrt::TerminalApp::implementation
         const auto windowWidth = ActualWidth();
         const auto minMaxCloseWidth = MinMaxCloseControl().ActualWidth();
         const auto dragBarMinWidth = DragBar().MinWidth();
-        const auto maxWidth = windowWidth - minMaxCloseWidth - dragBarMinWidth;
+        const auto maxWidth = windowWidth - minMaxCloseWidth - dragBarMinWidth - GitHubButton().ActualWidth();
         // Only set our MaxWidth if it's greater than 0. Setting it to a
         // negative value will cause a crash.
         if (maxWidth >= 0)
@@ -91,6 +102,86 @@ namespace winrt::TerminalApp::implementation
     void TitlebarControl::FullscreenChanged(const bool fullscreen)
     {
         MinMaxCloseControl().Visibility(fullscreen ? Visibility::Collapsed : Visibility::Visible);
+        if (fullscreen && _githubDashboard)
+        {
+            _githubDashboard->Close();
+        }
+    }
+
+    void TitlebarControl::GitHub_Click(const IInspectable&, const Windows::UI::Xaml::RoutedEventArgs&)
+    {
+        if (!_githubDashboard)
+        {
+            _githubDashboard = ::TerminalApp::GitHubDashboard::Create([weak = get_weak()](const auto& snapshot) {
+                if (const auto self = weak.get())
+                {
+                    self->_avatarRequest->store(true);
+                    self->_SetGitHubAvatar(snapshot.login, snapshot.avatarUrl);
+                }
+            });
+        }
+        _githubDashboard->Show(GitHubButton());
+    }
+
+    void TitlebarControl::_SetGitHubAvatar(const std::string& login, const std::string& url)
+    {
+        const auto picture = GitHubAvatar();
+        picture.DisplayName(to_hstring(login));
+        picture.Initials(login.empty() ? L"GH" : L"");
+        if (_avatarUrl == url && (url.empty() || picture.ProfilePicture()))
+        {
+            return;
+        }
+        _avatarUrl = url;
+        ::TerminalApp::GitHubDashboard::SetAvatar(picture, url);
+    }
+
+    safe_void_coroutine TitlebarControl::_LoadGitHubAvatar()
+    {
+        auto lifetime = get_strong();
+        _avatarRequest->store(true);
+        const auto cancelled = std::make_shared<std::atomic<bool>>(false);
+        _avatarRequest = cancelled;
+        const auto dispatcher = Dispatcher();
+        const auto path = ::TerminalApp::GitHub::CachePath();
+        co_await winrt::resume_background();
+        ::TerminalApp::GitHub::Snapshot cached;
+        try
+        {
+            cached = ::TerminalApp::GitHub::ReadCache(path);
+        }
+        catch (...)
+        {
+            LOG_CAUGHT_EXCEPTION();
+        }
+        co_await wil::resume_foreground(dispatcher);
+        if (cancelled->load())
+        {
+            co_return;
+        }
+        _SetGitHubAvatar(cached.login, cached.avatarUrl);
+        co_await winrt::resume_background();
+        std::optional<::TerminalApp::GitHub::Snapshot> current;
+        try
+        {
+            current = ::TerminalApp::GitHub::ParseIdentity(::TerminalApp::GitHub::ReadApi("user", {}, *cancelled));
+        }
+        catch (const ::TerminalApp::GitHub::Error& error)
+        {
+            if (error.failure != ::TerminalApp::GitHub::Failure::Cancelled)
+            {
+                LOG_HR_MSG(E_FAIL, "GitHub titlebar account could not be loaded");
+            }
+        }
+        catch (...)
+        {
+            LOG_CAUGHT_EXCEPTION();
+        }
+        co_await wil::resume_foreground(dispatcher);
+        if (!cancelled->load() && current)
+        {
+            _SetGitHubAvatar(current->login, current->avatarUrl);
+        }
     }
 
     void TitlebarControl::_OnMaximizeOrRestore(byte flag)
@@ -200,8 +291,10 @@ namespace winrt::TerminalApp::implementation
 
         constexpr auto lightnessThreshold = 0.6f;
         const auto isBrightColor = ColorFix::GetLightness(c) >= lightnessThreshold;
-        MinMaxCloseControl().RequestedTheme(isBrightColor ? winrt::Windows::UI::Xaml::ElementTheme::Light :
-                                                            winrt::Windows::UI::Xaml::ElementTheme::Dark);
+        const auto theme = isBrightColor ? winrt::Windows::UI::Xaml::ElementTheme::Light :
+                                           winrt::Windows::UI::Xaml::ElementTheme::Dark;
+        MinMaxCloseControl().RequestedTheme(theme);
+        GitHubButton().RequestedTheme(theme);
     }
 
 }

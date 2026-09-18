@@ -29,6 +29,7 @@
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
     </Grid.ColumnDefinitions>
 
     <ContentPresenter x:Name="ContentRoot"
@@ -39,15 +40,32 @@
             MinWidth="45.0"
             DoubleTapped="DragBar_DoubleTapped" />
 
+    <!-- The native input sink excludes this button's bounds. -->
+    <Button x:Name="GitHubButton"
+            x:Uid="GitHubButton"
+            Grid.Column="2"
+            Width="40"
+            Height="32"
+            Padding="0"
+            VerticalAlignment="Center"
+            Background="Transparent"
+            BorderThickness="0"
+            Click="GitHub_Click">
+        <PersonPicture x:Name="GitHubAvatar"
+                       Width="24"
+                       Height="24"
+                       Initials="GH"
+                       IsHitTestVisible="False" />
+    </Button>
+
     <local:MinMaxCloseControl x:Name="MinMaxCloseControl"
-                              Grid.Column="2"
+                              Grid.Column="3"
                               HorizontalAlignment="Right" />
 
     <!--  This border needs to be added manually until GH#10320 is fixed  -->
     <Border Grid.Column="1"
-            Grid.ColumnSpan="2"
+            Grid.ColumnSpan="3"
             Height="1"
             VerticalAlignment="Bottom"
             Background="{ThemeResource CardStrokeColorDefaultBrush}" />
 </Grid>
-

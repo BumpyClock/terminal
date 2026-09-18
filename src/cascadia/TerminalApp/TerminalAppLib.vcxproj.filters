@@ -21,6 +21,10 @@
     <ClCompile Include="Commandline.cpp" />
     <ClCompile Include="DebugTapConnection.cpp" />
     <ClCompile Include="Jumplist.cpp" />
+    <ClCompile Include="GitHubDashboard.cpp" />
+    <ClCompile Include="GitHubDashboardData.cpp" />
+    <ClCompile Include="GitHubDashboardCache.cpp" />
+    <ClCompile Include="GitHubDashboardTransport.cpp" />
     <ClCompile Include="FilteredCommand.cpp">
       <Filter>commandPalette</Filter>
     </ClCompile>
@@ -46,6 +50,8 @@
     <ClInclude Include="Commandline.h" />
     <ClInclude Include="DebugTapConnection.h" />
     <ClInclude Include="Jumplist.h" />
+    <ClInclude Include="GitHubDashboard.h" />
+    <ClInclude Include="GitHubDashboardData.h" />
     <ClInclude Include="FilteredCommand.h">
       <Filter>commandPalette</Filter>
     </ClInclude>

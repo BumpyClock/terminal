@@ -314,6 +314,24 @@ void NonClientIslandWindow::_ResizeDragBarWindow() noexcept
     const til::rect rect{ _GetDragAreaRect() };
     if (_IsTitlebarVisible() && rect.size().area() > 0)
     {
+        // Keep native caption/snap-layout input, but let XAML receive avatar clicks.
+        const auto button = _titlebar.GitHubButton();
+        const auto bounds = button.TransformToVisual(_rootGrid).TransformBounds({ 0, 0, static_cast<float>(button.ActualWidth()), static_cast<float>(button.ActualHeight()) });
+        const auto scale = GetCurrentDpiScale();
+        wil::unique_hrgn region{ CreateRectRgn(0, 0, rect.width(), rect.height()) };
+        wil::unique_hrgn avatar{ CreateRectRgn(
+            static_cast<int>(std::floor(bounds.X * scale)) - rect.left,
+            static_cast<int>(std::floor(bounds.Y * scale)) - rect.top,
+            static_cast<int>(std::ceil((bounds.X + bounds.Width) * scale)) - rect.left,
+            static_cast<int>(std::ceil((bounds.Y + bounds.Height) * scale)) - rect.top) };
+        if (!region || !avatar || CombineRgn(region.get(), region.get(), avatar.get(), RGN_DIFF) == ERROR ||
+            !SetWindowRgn(_dragBarWindow.get(), region.get(), TRUE))
+        {
+            LOG_HR_MSG(E_FAIL, "Could not exclude GitHub button from the titlebar input sink");
+            ShowWindow(_dragBarWindow.get(), SW_HIDE);
+            return;
+        }
+        region.release(); // SetWindowRgn takes ownership on success.
         SetWindowPos(_dragBarWindow.get(),
                      HWND_TOP,
                      rect.left,

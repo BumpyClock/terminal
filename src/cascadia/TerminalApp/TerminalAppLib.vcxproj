@@ -88,6 +88,8 @@
     <ClInclude Include="Commandline.h" />
     <ClInclude Include="CommandPaletteItems.h" />
     <ClInclude Include="Jumplist.h" />
+    <ClInclude Include="GitHubDashboard.h" />
+    <ClInclude Include="GitHubDashboardData.h" />
     <ClInclude Include="LanguageProfileNotifier.h" />
     <ClInclude Include="MinMaxCloseControl.h">
       <DependentUpon>MinMaxCloseControl.xaml</DependentUpon>
@@ -191,6 +193,10 @@
     <ClCompile Include="Commandline.cpp" />
     <ClCompile Include="CommandPaletteItems.cpp" />
     <ClCompile Include="Jumplist.cpp" />
+    <ClCompile Include="GitHubDashboard.cpp" />
+    <ClCompile Include="GitHubDashboardData.cpp" />
+    <ClCompile Include="GitHubDashboardCache.cpp" />
+    <ClCompile Include="GitHubDashboardTransport.cpp" />
     <ClCompile Include="LanguageProfileNotifier.cpp" />
     <ClCompile Include="MinMaxCloseControl.cpp">
       <DependentUpon>MinMaxCloseControl.xaml</DependentUpon>

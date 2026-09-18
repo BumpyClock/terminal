@@ -253,6 +253,64 @@ releases](https://github.com/microsoft/terminal/releases).
 
 ---
 
+## Native GitHub dashboard (local integration)
+
+The GitHub account-avatar button immediately left of the window controls opens an account-wide dashboard
+inside Terminal. It includes the contribution calendar, Copilot quota, recent
+activity, authored pull requests, review requests, and recently pushed
+repositories. GitHub Tray does not need to be installed or running.
+The titlebar loads the saved account avatar before checking the current GitHub
+CLI account in the background, without waiting for the dashboard to open.
+
+For a development build, build and deploy the `CascadiaPackage` project as
+described in [Running & Debugging](doc/building.md#running--debugging).
+Do not launch `bin\x64\Debug\WindowsTerminal\WindowsTerminal.exe` directly:
+that intermediate output is not the complete deployed application layout.
+
+Install GitHub CLI (`gh`) on PATH and sign in from your shell with
+`gh auth login --hostname github.com`. Terminal reuses that account without
+retrieving or storing its credentials. `GH_TOKEN` and `GITHUB_TOKEN` can override
+the CLI's saved account. The dashboard supports GitHub.com, not enterprise hosts.
+
+Select **Refresh** or press **F5** in the panel to fetch every section. Automatic
+refresh runs only while the panel is open; **Preferences** selects its interval
+and contribution cell size for this Terminal window. Escape or **Close** dismisses
+the panel without closing Terminal. Use the arrow keys, Home, and End on the
+contribution calendar to inspect individual days.
+
+The lists contain up to 30 entries. Activity groups pull-request events from
+the fetched window, which GitHub may delay. PR state, review decisions, and check
+outcomes remain separate. Select the checks button for individual results;
+skipped, missing, and pending checks are not treated as successful. Labels and
+checks are limited to 10 and 100 per PR, with truncation disclosed.
+
+Pull-request cards, including PRs in Activity, load author avatars asynchronously
+from GitHub's HTTPS avatar host. Images are decoded at 96 pixels for the 24-DIP
+picture; loading failures leave initials visible. Avatar URLs are included in
+the snapshot cache. Image downloading/caching is handled by Windows XAML, not
+the GitHub CLI, and does not use its credentials. Older snapshots remain valid;
+select Refresh once to populate their missing avatar URLs.
+
+Snapshots are saved in `github-dashboard.json` beside Terminal's settings,
+including private repository metadata but never credentials. Saved data appears
+before network requests finish, explicitly marked unverified until the account
+is checked. Sections expire after seven days; failures retain eligible
+same-account data with the original timestamp and a stale warning. Account
+mismatches never reuse another account's sections. Failed identity verification
+leaves saved data explicitly unverified.
+
+Independent sections refresh concurrently and appear as they complete, so a slow
+quota request does not hold up the lists. Automatic refresh reuses successful
+data for five minutes (15 minutes for repositories and contributions); Refresh
+and F5 bypass that freshness window. Only the selected list is rendered and
+scrolls; the compact section selector and footer remain fixed. Preferences remain
+window-local. Closing the panel cancels in-flight requests; notification-area
+lifecycle and background refresh while hidden are not included.
+
+Copilot quota uses GitHub's undocumented read-only `copilot_internal/user`
+endpoint. It may be unavailable independently of the other sections. Usage
+shows percentage consumed, not inferred request counts or currency.
+
 ## Resources
 
 For more information about Windows Terminal, you may find some of these

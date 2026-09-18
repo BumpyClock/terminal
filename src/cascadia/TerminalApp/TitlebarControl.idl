@@ -33,5 +33,6 @@ namespace TerminalApp
 
         IInspectable Content;
         Windows.UI.Xaml.Controls.Border DragBar { get; };
+        Windows.UI.Xaml.Controls.Button GitHubButton { get; };
     }
 }

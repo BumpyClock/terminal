@@ -1006,4 +1006,196 @@ For example, 'wt -p "Ubuntu" -d C:\' is equivalent to 'wt new-tab -p "Ubuntu" -d
 For all available options, run 'wt new-tab --help'.</value>
     <comment>{Locked="wt","new-tab","-p","-d","--help"}</comment>
   </data>
+  <data name="GitHubButton.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
+    <value>GitHub dashboard</value>
+  </data>
+  <data name="GitHubButton.[using:Windows.UI.Xaml.Controls]ToolTipService.ToolTip" xml:space="preserve">
+    <value>GitHub activity, pull requests, and Copilot usage</value>
+  </data>
+  <data name="GitHubDashboard" xml:space="preserve">
+    <value>GitHub dashboard</value>
+  </data>
+  <data name="GitHubActivity" xml:space="preserve">
+    <value>Activity</value>
+  </data>
+  <data name="GitHubMyPrs" xml:space="preserve">
+    <value>My PRs</value>
+  </data>
+  <data name="GitHubReviews" xml:space="preserve">
+    <value>Reviews</value>
+  </data>
+  <data name="GitHubRepos" xml:space="preserve">
+    <value>Repos</value>
+  </data>
+  <data name="GitHubPreferences" xml:space="preserve">
+    <value>Preferences</value>
+  </data>
+  <data name="GitHubRefresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="GitHubClose" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="GitHubRefreshInterval" xml:space="preserve">
+    <value>Refresh interval while open (minutes)</value>
+  </data>
+  <data name="GitHubCellSize" xml:space="preserve">
+    <value>Contribution cell size</value>
+  </data>
+  <data name="GitHubSmall" xml:space="preserve">
+    <value>Small</value>
+  </data>
+  <data name="GitHubMedium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="GitHubLarge" xml:space="preserve">
+    <value>Large</value>
+  </data>
+  <data name="GitHubPrivacy" xml:space="preserve">
+    <value>GitHub metadata, including private repository information, is saved in github-dashboard.json beside Terminal's settings. Saved data expires after seven days and is marked unverified until the account is checked. No credentials are stored. Preferences remain window-local. Refresh pauses when the panel closes.</value>
+  </data>
+  <data name="GitHubSavedUnverified" xml:space="preserve">
+    <value>Account verification pending - data may be saved or still refreshing.</value>
+  </data>
+  <data name="GitHubCacheWarning" xml:space="preserve">
+    <value>Live data loaded, but the local cache could not be saved.</value>
+  </data>
+  <data name="GitHubNotLoaded" xml:space="preserve">
+    <value>Contributions not loaded</value>
+  </data>
+  <data name="GitHubAvatarUnavailable" xml:space="preserve">
+    <value>The GitHub avatar could not be loaded. Showing initials instead.</value>
+  </data>
+  <data name="GitHubSignIn" xml:space="preserve">
+    <value>Uses your GitHub CLI account. Sign in from your shell with gh auth login --hostname github.com, then refresh.</value>
+  </data>
+  <data name="GitHubAccountScope" xml:space="preserve">
+    <value>Account-wide snapshot, not the active terminal's repository. Lists show at most 30 entries; activity may be delayed.</value>
+  </data>
+  <data name="GitHubLoading" xml:space="preserve">
+    <value>Refreshing GitHub dashboard...</value>
+  </data>
+  <data name="GitHubRefreshCancelled" xml:space="preserve">
+    <value>Refresh cancelled. Select Refresh to try again.</value>
+  </data>
+  <data name="GitHubMissingCli" xml:space="preserve">
+    <value>GitHub CLI was not found on PATH. Install gh, sign in with gh auth login --hostname github.com, then restart Terminal.</value>
+  </data>
+  <data name="GitHubTimeout" xml:space="preserve">
+    <value>The GitHub request timed out. Check your connection and refresh.</value>
+  </data>
+  <data name="GitHubAccountChanged" xml:space="preserve">
+    <value>Your GitHub account changed during refresh. Previous data has been removed. Refresh to load the current account.</value>
+  </data>
+  <data name="GitHubInvalidResponse" xml:space="preserve">
+    <value>GitHub returned an unexpected response. Refresh to try again.</value>
+  </data>
+  <data name="GitHubRequestFailed" xml:space="preserve">
+    <value>Could not load GitHub data. Check your connection, gh auth status --hostname github.com, and repository permissions. Copilot usage may be unavailable for this account.</value>
+  </data>
+  <data name="GitHubStale" xml:space="preserve">
+    <value>Stale data.</value>
+  </data>
+  <data name="GitHubUpdated" xml:space="preserve">
+    <value>Updated</value>
+  </data>
+  <data name="GitHubTwelveMonths" xml:space="preserve">
+    <value>12 months</value>
+  </data>
+  <data name="GitHubContributions" xml:space="preserve">
+    <value>contributions</value>
+  </data>
+  <data name="GitHubCalendarKeys" xml:space="preserve">
+    <value>Use arrow keys to inspect days, Home for the first day, and End for the latest day.</value>
+  </data>
+  <data name="GitHubAiCredits" xml:space="preserve">
+    <value>AI credits</value>
+  </data>
+  <data name="GitHubPremiumRequests" xml:space="preserve">
+    <value>Premium requests</value>
+  </data>
+  <data name="GitHubChat" xml:space="preserve">
+    <value>Chat</value>
+  </data>
+  <data name="GitHubCompletions" xml:space="preserve">
+    <value>Completions</value>
+  </data>
+  <data name="GitHubUsed" xml:space="preserve">
+    <value>used</value>
+  </data>
+  <data name="GitHubUnlimited" xml:space="preserve">
+    <value>Unlimited</value>
+  </data>
+  <data name="GitHubNotIncluded" xml:space="preserve">
+    <value>Not included</value>
+  </data>
+  <data name="GitHubResets" xml:space="preserve">
+    <value>Resets</value>
+  </data>
+  <data name="GitHubEmpty" xml:space="preserve">
+    <value>No items in this snapshot.</value>
+  </data>
+  <data name="GitHubEvents" xml:space="preserve">
+    <value>events in the fetched activity window</value>
+  </data>
+  <data name="GitHubComments" xml:space="preserve">
+    <value>comments</value>
+  </data>
+  <data name="GitHubChecks" xml:space="preserve">
+    <value>Checks passed:</value>
+  </data>
+  <data name="GitHubNoChecks" xml:space="preserve">
+    <value>No checks reported. This does not imply success.</value>
+  </data>
+  <data name="GitHubChecksLimited" xml:space="preserve">
+    <value>Showing the first 100 checks. Total:</value>
+  </data>
+  <data name="GitHubLabelsLimited" xml:space="preserve">
+    <value>Showing the first 10 labels. Total:</value>
+  </data>
+  <data name="GitHubOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="GitHubClosed" xml:space="preserve">
+    <value>Closed</value>
+  </data>
+  <data name="GitHubMerged" xml:space="preserve">
+    <value>Merged</value>
+  </data>
+  <data name="GitHubDraft" xml:space="preserve">
+    <value>Draft</value>
+  </data>
+  <data name="GitHubApproved" xml:space="preserve">
+    <value>Approved</value>
+  </data>
+  <data name="GitHubChangesRequested" xml:space="preserve">
+    <value>Changes requested</value>
+  </data>
+  <data name="GitHubReviewRequired" xml:space="preserve">
+    <value>Review required</value>
+  </data>
+  <data name="GitHubPushed" xml:space="preserve">
+    <value>Pushed commits</value>
+  </data>
+  <data name="GitHubDeletedRef" xml:space="preserve">
+    <value>Deleted a branch or tag</value>
+  </data>
+  <data name="GitHubCreatedRef" xml:space="preserve">
+    <value>Created a branch or tag</value>
+  </data>
+  <data name="GitHubPullActivity" xml:space="preserve">
+    <value>Pull request activity</value>
+  </data>
+  <data name="GitHubReviewActivity" xml:space="preserve">
+    <value>Pull request review</value>
+  </data>
+  <data name="GitHubCommentActivity" xml:space="preserve">
+    <value>Comment activity</value>
+  </data>
+  <data name="GitHubIssueActivity" xml:space="preserve">
+    <value>Issue activity</value>
+  </data>
+  <data name="GitHubReleaseActivity" xml:space="preserve">
+    <value>Release activity</value>
+  </data>
 </root>
