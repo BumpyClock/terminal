@@ -36,6 +36,17 @@
     </ClCompile>
     <ClCompile Include="Toast.cpp" />
     <ClCompile Include="LanguageProfileNotifier.cpp" />
+    <ClCompile Include="GitStatusProvider.cpp" />
+    <ClCompile Include="GitStatusParser.cpp" />
+    <ClCompile Include="StatusBarPresentation.cpp">
+      <Filter>controls</Filter>
+    </ClCompile>
+    <ClCompile Include="StatusBarCoordinator.cpp">
+      <Filter>controls</Filter>
+    </ClCompile>
+    <ClCompile Include="StatusBarControl.cpp">
+      <Filter>controls</Filter>
+    </ClCompile>
     <ClCompile Include="TerminalSettingsCache.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -67,6 +78,18 @@
     </ClInclude>
     <ClInclude Include="Toast.h" />
     <ClInclude Include="LanguageProfileNotifier.h" />
+    <ClInclude Include="GitStatusProvider.h" />
+    <ClInclude Include="GitStatus.h" />
+    <ClInclude Include="GitStatusParser.h" />
+    <ClInclude Include="StatusBarPresentation.h">
+      <Filter>controls</Filter>
+    </ClInclude>
+    <ClInclude Include="StatusBarCoordinator.h">
+      <Filter>controls</Filter>
+    </ClInclude>
+    <ClInclude Include="StatusBarControl.h">
+      <Filter>controls</Filter>
+    </ClInclude>
     <ClInclude Include="WindowsPackageManagerFactory.h" />
     <ClInclude Include="TerminalSettingsCache.h" />
   </ItemGroup>
@@ -93,6 +116,9 @@
     <Midl Include="IPaneContent.idl" />
     <Midl Include="Remoting.idl" />
     <Midl Include="HighlightedTextControl.idl" />
+    <Midl Include="StatusBarControl.idl">
+      <Filter>controls</Filter>
+    </Midl>
   </ItemGroup>
   <ItemGroup>
     <Page Include="MinMaxCloseControl.xaml">
@@ -102,6 +128,9 @@
       <Filter>controls</Filter>
     </Page>
     <Page Include="TabHeaderControl.xaml">
+      <Filter>controls</Filter>
+    </Page>
+    <Page Include="StatusBarControl.xaml">
       <Filter>controls</Filter>
     </Page>
     <Page Include="TerminalPage.xaml">

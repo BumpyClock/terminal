@@ -283,6 +283,12 @@ std::wstring_view Terminal::GetWorkingDirectory() noexcept
     return _workingDirectory;
 }
 
+void Terminal::ResetShellContext() noexcept
+{
+    _assertLocked();
+    _shellContext = {};
+}
+
 // Method Description:
 // - Resize the terminal as the result of some user interaction.
 // Arguments:
@@ -1160,6 +1166,11 @@ void Terminal::SetWarningBellCallback(std::function<void()> pfn) noexcept
 void Terminal::SetTitleChangedCallback(std::function<void(std::wstring_view)> pfn) noexcept
 {
     _pfnTitleChanged.swap(pfn);
+}
+
+void Terminal::SetShellContextChangedCallback(std::function<void(Microsoft::Terminal::StatusBar::ShellContextReport)> pfn) noexcept
+{
+    _pfnShellContextChanged.swap(pfn);
 }
 
 void Terminal::SetCopyToClipboardCallback(std::function<void(wil::zwstring_view)> pfn) noexcept

@@ -17,6 +17,9 @@
 #include "WindowListEntry.g.h"
 #include "WindowListRequest.g.h"
 #include "Toast.h"
+#include "StatusBarControl.h"
+#include "StatusBarCoordinator.h"
+#include "GitStatus.h"
 
 #include "WindowsPackageManagerFactory.h"
 
@@ -144,12 +147,14 @@ namespace winrt::TerminalApp::implementation
     {
     public:
         TerminalPage(TerminalApp::WindowProperties properties, const TerminalApp::ContentManager& manager);
+        ~TerminalPage();
 
         // This implements shobjidl's IInitializeWithWindow, but due to a XAML Compiler bug we cannot
         // put it in our inheritance graph. https://github.com/microsoft/microsoft-ui-xaml/issues/3331
         STDMETHODIMP Initialize(HWND hwnd);
 
         void SetSettings(Microsoft::Terminal::Settings::Model::CascadiaSettings settings, bool needRefreshUI);
+        void ApplyStatusBarSnapshot(const ::Microsoft::Terminal::StatusBar::StatusBarSnapshot& snapshot);
 
         void Create();
         Windows::UI::Xaml::Automation::Peers::AutomationPeer OnCreateAutomationPeer();
@@ -278,6 +283,11 @@ namespace winrt::TerminalApp::implementation
         Microsoft::UI::Xaml::Controls::TabView _tabView{ nullptr };
         TerminalApp::TabRowControl _tabRow{ nullptr };
         Windows::UI::Xaml::Controls::Grid _tabContent{ nullptr };
+        winrt::com_ptr<implementation::StatusBarControl> _statusBar;
+        std::shared_ptr<::TerminalApp::StatusBarCoordinator> _statusBarCoordinator;
+        winrt::weak_ref<winrt::Microsoft::Terminal::Control::TermControl> _statusBarObservedControl;
+        winrt::Microsoft::Terminal::Control::TermControl::ShellContextChanged_revoker _statusBarShellContextRevoker;
+        uint64_t _statusBarBindingEpoch{ 0 };
         Microsoft::UI::Xaml::Controls::SplitButton _newTabButton{ nullptr };
         Windows::UI::Xaml::Controls::MenuFlyout _workspaceFlyout{ nullptr };
         Windows::UI::Xaml::Controls::Button _workspaceDropdown{ nullptr };
@@ -298,6 +308,7 @@ namespace winrt::TerminalApp::implementation
         bool _isMaximized{ false };
         bool _isAlwaysOnTop{ false };
         bool _showTabsFullscreen{ false };
+        ::Microsoft::Terminal::StatusBar::StatusBarSnapshot _statusBarSnapshot;
 
         std::optional<uint32_t> _loadFromPersistedLayoutIdx{};
 
@@ -544,6 +555,13 @@ namespace winrt::TerminalApp::implementation
                                         winrt::Microsoft::Terminal::TerminalConnection::ITerminalConnection existingConnection = nullptr);
 
         void _RefreshUIForSettingsReload();
+        void _UpdateStatusBar();
+        void _RebindStatusBarToTab(const winrt::TerminalApp::Tab& tab);
+        void _RebindStatusBarToFocusedPane();
+        void _StatusBarShellContextChanged(
+            uint64_t bindingEpoch,
+            const winrt::Microsoft::Terminal::Control::ShellContextEventArgs& context);
+        void _PublishStatusBarShellContext(const winrt::Microsoft::Terminal::Control::ShellContextEventArgs& context);
 
         void _SetNewTabButtonColor(til::color color, til::color accentColor);
         void _ClearNewTabButtonColor();

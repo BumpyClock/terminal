@@ -206,6 +206,18 @@ public:
         Log::Comment(L"SetWorkingDirectory MOCK called...");
     }
 
+    void NotifyShellContextPath(const Microsoft::Terminal::StatusBar::ShellContextPathState state, const std::wstring_view path) override
+    {
+        Log::Comment(L"NotifyShellContextPath MOCK called...");
+        _shellContextPaths.emplace_back(state, path);
+    }
+
+    void NotifyShellContextPhase(const Microsoft::Terminal::StatusBar::ShellContextPhase phase) override
+    {
+        Log::Comment(L"NotifyShellContextPhase MOCK called...");
+        _shellContextPhases.emplace_back(phase);
+    }
+
     void PlayMidiNote(const int /*noteNumber*/, const int /*velocity*/, const std::chrono::microseconds /*duration*/) override
     {
         Log::Comment(L"PlayMidiNote MOCK called...");
@@ -286,6 +298,8 @@ public:
 
         _response.clear();
         _retainResponse = false;
+        _shellContextPaths.clear();
+        _shellContextPhases.clear();
     }
 
     void PrepCursor(CursorX xact, CursorY yact)
@@ -406,6 +420,8 @@ public:
 
     std::wstring _expectedMenuJson{};
     unsigned int _expectedReplaceLength = 0;
+    std::vector<std::pair<Microsoft::Terminal::StatusBar::ShellContextPathState, std::wstring>> _shellContextPaths;
+    std::vector<Microsoft::Terminal::StatusBar::ShellContextPhase> _shellContextPhases;
 
 private:
     HANDLE _hCon;
@@ -3913,6 +3929,50 @@ public:
         _testGetSet->_expectedMenuJson = LR"({ "foo": "what;ever", "bar": 2 })";
         _testGetSet->_expectedReplaceLength = 20;
         _pDispatch->DoVsCodeAction(LR"(Completions;10;20;30;{ "foo": "what;ever", "bar": 2 })");
+    }
+
+    TEST_METHOD(ShellContextTests)
+    {
+        using Microsoft::Terminal::StatusBar::ShellContextPathState;
+        using Microsoft::Terminal::StatusBar::ShellContextPhase;
+
+        _testGetSet->PrepData();
+
+        _pDispatch->DoVsCodeAction(L"A");
+        _pDispatch->DoVsCodeAction(L"B");
+        _pDispatch->DoVsCodeAction(L"C");
+        _pDispatch->DoVsCodeAction(L"D;1");
+        VERIFY_ARE_EQUAL(static_cast<size_t>(4), _testGetSet->_shellContextPhases.size());
+        VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPhase::Prompt), static_cast<int>(_testGetSet->_shellContextPhases[0]));
+        VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPhase::Prompt), static_cast<int>(_testGetSet->_shellContextPhases[1]));
+        VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPhase::Command), static_cast<int>(_testGetSet->_shellContextPhases[2]));
+        VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPhase::Prompt), static_cast<int>(_testGetSet->_shellContextPhases[3]));
+
+        _pDispatch->DoVsCodeAction(L"P;Cwd=C:\\x5cwork\\x3btree\\\\leaf \u03a9");
+        VERIFY_ARE_EQUAL(static_cast<size_t>(1), _testGetSet->_shellContextPaths.size());
+        VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPathState::FileSystem), static_cast<int>(_testGetSet->_shellContextPaths[0].first));
+        VERIFY_ARE_EQUAL(std::wstring{ L"C:\\work;tree\\leaf \u03a9" }, _testGetSet->_shellContextPaths[0].second);
+
+        _pDispatch->DoVsCodeAction(L"P;Cwd=");
+        VERIFY_ARE_EQUAL(static_cast<size_t>(2), _testGetSet->_shellContextPaths.size());
+        VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPathState::NonFileSystem), static_cast<int>(_testGetSet->_shellContextPaths[1].first));
+        VERIFY_IS_TRUE(_testGetSet->_shellContextPaths[1].second.empty());
+
+        _pDispatch->DoVsCodeAction(LR"(P;Cwd=bad\x0)");
+        _pDispatch->DoVsCodeAction(LR"(P;Cwd=bad\q)");
+        _pDispatch->DoVsCodeAction(L"P;Cwd=" + std::wstring(32769, L'a'));
+        VERIFY_ARE_EQUAL(static_cast<size_t>(2), _testGetSet->_shellContextPaths.size());
+
+        _testGetSet->PrepData();
+        _stateMachine->ProcessString(L"\x1b]633;P;C");
+        _stateMachine->ProcessString(L"wd=/home/user");
+        _stateMachine->ProcessString(L"\x07");
+        _stateMachine->ProcessString(L"\x1b]633;D;0\x1b");
+        _stateMachine->ProcessString(L"\\");
+        VERIFY_ARE_EQUAL(static_cast<size_t>(1), _testGetSet->_shellContextPaths.size());
+        VERIFY_ARE_EQUAL(std::wstring{ L"/home/user" }, _testGetSet->_shellContextPaths[0].second);
+        VERIFY_ARE_EQUAL(static_cast<size_t>(1), _testGetSet->_shellContextPhases.size());
+        VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPhase::Prompt), static_cast<int>(_testGetSet->_shellContextPhases[0]));
     }
 
     TEST_METHOD(PageMovementTests)

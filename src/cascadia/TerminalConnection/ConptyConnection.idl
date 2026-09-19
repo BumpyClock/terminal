@@ -7,7 +7,7 @@ namespace Microsoft.Terminal.TerminalConnection
 {
     delegate void NewConnectionHandler(ConptyConnection connection);
 
-    [default_interface] runtimeclass ConptyConnection : ITerminalConnection
+    [default_interface] runtimeclass ConptyConnection : ITerminalConnection, IShellIntegrationConnectionInfo
     {
         ConptyConnection();
         String Commandline { get; };
@@ -36,5 +36,22 @@ namespace Microsoft.Terminal.TerminalConnection
                                                                       UInt32 columns,
                                                                       Guid guid,
                                                                       Guid profileGuid);
+
+        static void ConfigureShellIntegration(Windows.Foundation.Collections.ValueSet settings,
+                                              Boolean enabled,
+                                              ShellIntegrationEnvironmentKind environment,
+                                              String wslDistro,
+                                              String assetRoot);
+
+        static void ConfigureShellIntegrationWithUser(Windows.Foundation.Collections.ValueSet settings,
+                                                      Boolean enabled,
+                                                      ShellIntegrationEnvironmentKind environment,
+                                                      String wslDistro,
+                                                      String wslUser,
+                                                      String assetRoot);
+
+        static void ConfigureShellIntegrationForLaunch(Windows.Foundation.Collections.ValueSet settings,
+                                                       Boolean enabled,
+                                                       String assetRoot);
     };
 }

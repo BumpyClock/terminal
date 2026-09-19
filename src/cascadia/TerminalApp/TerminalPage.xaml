@@ -19,6 +19,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <local:TabRowControl x:Name="TabRow"
@@ -50,6 +51,9 @@
                 <ImageBrush />
             </Grid.Background>
         </Grid>
+
+        <local:StatusBarControl x:Name="StatusBar"
+                                Grid.Row="3" />
 
         <!--
             GH#12775 et. al: After switching to ControlsV2, it seems that

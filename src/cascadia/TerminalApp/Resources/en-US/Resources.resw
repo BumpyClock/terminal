@@ -1174,4 +1174,152 @@ For all available options, run 'wt new-tab --help'.</value>
   <data name="GitHubReleaseActivity" xml:space="preserve">
     <value>Release activity</value>
   </data>
+  <data name="StatusBar_GitSummaryPrefix" xml:space="preserve">
+    <value>Git status</value>
+    <comment>Accessible and tooltip prefix for Git status-bar content.</comment>
+  </data>
+  <data name="StatusBar_GitSummarySeparator" xml:space="preserve">
+    <value>; </value>
+    <comment>Separator between Git status-bar summary clauses.</comment>
+  </data>
+  <data name="StatusBar_GitBranchNamed" xml:space="preserve">
+    <value>Git branch {0}</value>
+    <comment>{locked="{0}"}{0} is the full named branch.</comment>
+  </data>
+  <data name="StatusBar_GitBranchUnborn" xml:space="preserve">
+    <value>Git branch {0}, no commits yet</value>
+    <comment>{locked="{0}"}{0} is the full unborn branch name.</comment>
+  </data>
+  <data name="StatusBar_GitBranchUnbornCompact" xml:space="preserve">
+    <value>{0} &#xB7; no commits yet</value>
+    <comment>{locked="{0}"}{0} is the unborn branch name displayed in the compact rail.</comment>
+  </data>
+  <data name="StatusBar_GitDetachedHead" xml:space="preserve">
+    <value>Git detached at {0}</value>
+    <comment>{locked="{0}"}{0} is the full detached commit identifier.</comment>
+  </data>
+  <data name="StatusBar_GitDetachedHeadUnknown" xml:space="preserve">
+    <value>Git detached HEAD</value>
+    <comment>Accessible detached-HEAD text when no commit identifier is available.</comment>
+  </data>
+  <data name="StatusBar_GitDetachedHeadCompact" xml:space="preserve">
+    <value>detached &#xB7; {0}</value>
+    <comment>{locked="{0}"}{0} is the abbreviated detached commit identifier displayed in the compact rail.</comment>
+  </data>
+  <data name="StatusBar_GitDetachedHeadCompactUnknown" xml:space="preserve">
+    <value>detached</value>
+    <comment>Compact detached-HEAD text when no commit identifier is available.</comment>
+  </data>
+  <data name="StatusBar_GitUnknownBranch" xml:space="preserve">
+    <value>unknown branch</value>
+    <comment>Fallback when a ready snapshot unexpectedly has no branch name.</comment>
+  </data>
+  <data name="StatusBar_GitEnvironmentWindows" xml:space="preserve">
+    <value>Windows</value>
+    <comment>Environment name in the Git status summary. {Locked="Windows"}</comment>
+  </data>
+  <data name="StatusBar_GitEnvironmentWsl" xml:space="preserve">
+    <value>WSL ({0})</value>
+    <comment>{locked="WSL"}{locked="{0}"}{0} is the WSL distribution name.</comment>
+  </data>
+  <data name="StatusBar_GitEnvironmentUnsupported" xml:space="preserve">
+    <value>unsupported environment</value>
+    <comment>Fallback environment description for an unexpected ready snapshot.</comment>
+  </data>
+  <data name="StatusBar_GitRepository" xml:space="preserve">
+    <value>repository {0}</value>
+    <comment>{locked="{0}"}{0} is the full worktree root path.</comment>
+  </data>
+  <data name="StatusBar_GitTracking" xml:space="preserve">
+    <value>tracking {0}: {1} ahead, {2} behind</value>
+    <comment>{locked="{0}"}{locked="{1}"}{locked="{2}"}{0} is upstream; {1}/{2} are exact local counts.</comment>
+  </data>
+  <data name="StatusBar_GitClean" xml:space="preserve">
+    <value>clean working tree</value>
+    <comment>Accessible clean repository description.</comment>
+  </data>
+  <data name="StatusBar_GitStaged" xml:space="preserve">
+    <value>Staged changes present</value>
+    <comment>Tooltip and accessible meaning of the staged-state check icon.</comment>
+  </data>
+  <data name="StatusBar_GitUnstaged" xml:space="preserve">
+    <value>Unstaged changes present in the worktree</value>
+    <comment>Tooltip and accessible meaning of the unstaged-state pencil icon.</comment>
+  </data>
+  <data name="StatusBar_GitUntracked" xml:space="preserve">
+    <value>Untracked files present; new paths Git is not tracking</value>
+    <comment>Tooltip and accessible meaning of the untracked-state question-mark icon.</comment>
+  </data>
+  <data name="StatusBar_GitConflicted" xml:space="preserve">
+    <value>Merge conflicts present; resolve them to continue</value>
+    <comment>Tooltip and accessible meaning of the conflict warning icon.</comment>
+  </data>
+  <data name="StatusBar_GitAheadOne" xml:space="preserve">
+    <value>1 commit ahead of upstream</value>
+    <comment>Tooltip for one local commit ahead of the configured upstream.</comment>
+  </data>
+  <data name="StatusBar_GitAheadMany" xml:space="preserve">
+    <value>{0} commits ahead of upstream</value>
+    <comment>{locked="{0}"}{0} is the exact local commit count ahead of upstream.</comment>
+  </data>
+  <data name="StatusBar_GitBehindOne" xml:space="preserve">
+    <value>1 commit behind upstream</value>
+    <comment>Tooltip for one local commit behind the configured upstream.</comment>
+  </data>
+  <data name="StatusBar_GitBehindMany" xml:space="preserve">
+    <value>{0} commits behind upstream</value>
+    <comment>{locked="{0}"}{0} is the exact local commit count behind upstream.</comment>
+  </data>
+  <data name="StatusBar_GitLinesAddedCompact" xml:space="preserve">
+    <value>+{0}</value>
+    <comment>{locked="+"}{locked="{0}"}{0} is a bounded visible tracked-line count; the tooltip remains exact.</comment>
+  </data>
+  <data name="StatusBar_GitLinesDeletedCompact" xml:space="preserve">
+    <value>&#x2212;{0}</value>
+    <comment>{locked="&#x2212;"}{locked="{0}"}{0} is a bounded visible tracked-line count; the tooltip remains exact.</comment>
+  </data>
+  <data name="StatusBar_GitLineAdded" xml:space="preserve">
+    <value>1 tracked line added compared with HEAD</value>
+    <comment>Exact tooltip and accessible summary for one tracked line added. {Locked="HEAD"}</comment>
+  </data>
+  <data name="StatusBar_GitLinesAdded" xml:space="preserve">
+    <value>{0} tracked lines added compared with HEAD</value>
+    <comment>{locked="{0}"}{0} is the exact tracked-line addition total. {Locked="HEAD"}</comment>
+  </data>
+  <data name="StatusBar_GitLineDeleted" xml:space="preserve">
+    <value>1 tracked line deleted compared with HEAD</value>
+    <comment>Exact tooltip and accessible summary for one tracked line deleted. {Locked="HEAD"}</comment>
+  </data>
+  <data name="StatusBar_GitLinesDeleted" xml:space="preserve">
+    <value>{0} tracked lines deleted compared with HEAD</value>
+    <comment>{locked="{0}"}{0} is the exact tracked-line deletion total. {Locked="HEAD"}</comment>
+  </data>
+  <data name="StatusBar_GitBinaryChanges" xml:space="preserve">
+    <value>Binary tracked changes present; binary files do not contribute line totals</value>
+    <comment>Explains why binary tracked changes have state icons but no fabricated line totals.</comment>
+  </data>
+  <data name="StatusBar_GitConflictLinesUnavailable" xml:space="preserve">
+    <value>Tracked line totals are unavailable while merge conflicts are present</value>
+    <comment>Explains why conflict snapshots omit aggregate tracked-line totals.</comment>
+  </data>
+  <data name="StatusBar_GitLinesUnavailable" xml:space="preserve">
+    <value>Tracked line totals are unavailable</value>
+    <comment>Fallback explanation when tracked changes are known but no aggregate line total is supplied.</comment>
+  </data>
+  <data name="StatusBar_GitLineAddedUnborn" xml:space="preserve">
+    <value>1 tracked line added compared with the empty tree before the first commit</value>
+    <comment>Exact tooltip and accessible summary for one tracked line added on an unborn branch.</comment>
+  </data>
+  <data name="StatusBar_GitLinesAddedUnborn" xml:space="preserve">
+    <value>{0} tracked lines added compared with the empty tree before the first commit</value>
+    <comment>{locked="{0}"}{0} is the exact tracked-line addition total on an unborn branch.</comment>
+  </data>
+  <data name="StatusBar_GitLineDeletedUnborn" xml:space="preserve">
+    <value>1 tracked line deleted compared with the empty tree before the first commit</value>
+    <comment>Exact tooltip and accessible summary for one tracked line deleted on an unborn branch.</comment>
+  </data>
+  <data name="StatusBar_GitLinesDeletedUnborn" xml:space="preserve">
+    <value>{0} tracked lines deleted compared with the empty tree before the first commit</value>
+    <comment>{locked="{0}"}{0} is the exact tracked-line deletion total on an unborn branch.</comment>
+  </data>
 </root>

@@ -2604,6 +2604,11 @@
           "description": "When set to true, tabs remain visible in fullscreen mode. When set to false, tabs will be hidden when entering fullscreen mode.",
           "type": "boolean"
         },
+        "showStatusBar": {
+          "default": true,
+          "description": "When set to true, a status bar below the terminal shows Git information for the focused pane when available. The bar keeps its height when there is no Git information. When set to false, the status bar is hidden.",
+          "type": "boolean"
+        },
         "useAcrylicInTabRow": {
           "default": false,
           "description": "When set to true, the tab row will have an acrylic material background with 50% opacity.",

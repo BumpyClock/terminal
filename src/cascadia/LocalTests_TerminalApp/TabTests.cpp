@@ -3,10 +3,14 @@
 
 #include "pch.h"
 
+#include <winrt/Windows.UI.Xaml.Automation.h>
+#include <winrt/Windows.UI.Xaml.Automation.Peers.h>
+
 #include "../TerminalApp/TerminalPage.h"
 #include "../TerminalApp/TerminalWindow.h"
 #include "../TerminalApp/MinMaxCloseControl.h"
 #include "../TerminalApp/TabRowControl.h"
+#include "../TerminalApp/StatusBarControl.h"
 #include "../TerminalApp/ShortcutActionDispatch.h"
 #include "../TerminalApp/Tab.h"
 #include "../TerminalApp/CommandPalette.h"
@@ -75,6 +79,7 @@ namespace TerminalAppLocalTests
         TEST_METHOD(CreateTerminalMuxXamlType);
 
         TEST_METHOD(CreateTerminalPage);
+        TEST_METHOD(StatusBarLayoutAccessibilityAndSettings);
 
         TEST_METHOD(TryDuplicateBadTab);
         TEST_METHOD(TryDuplicateBadPane);
@@ -197,6 +202,191 @@ namespace TerminalAppLocalTests
             VERIFY_IS_NOT_NULL(page);
         });
         VERIFY_SUCCEEDED(result);
+    }
+
+    void TabTests::StatusBarLayoutAccessibilityAndSettings()
+    {
+        winrt::com_ptr<winrt::TerminalApp::implementation::StatusBarControl> statusBar;
+        TestOnUIThread([&]() {
+            statusBar = winrt::make_self<winrt::TerminalApp::implementation::StatusBarControl>();
+            VERIFY_ARE_EQUAL(TerminalApp::StatusBarPresentation::MinimumRowHeight, statusBar->MinHeight());
+            const auto background{ statusBar->Content().as<Border>() };
+            VERIFY_ARE_EQUAL(0.0, background.BorderThickness().Top);
+            VERIFY_IS_FALSE(statusBar->IsTabStop());
+            VERIFY_ARE_EQUAL(HorizontalAlignment::Left, statusBar->GitContent().HorizontalAlignment());
+            VERIFY_ARE_EQUAL(HorizontalAlignment::Left, statusBar->Rail().HorizontalAlignment());
+            VERIFY_ARE_EQUAL(TextWrapping::NoWrap, statusBar->BranchText().TextWrapping());
+            VERIFY_ARE_EQUAL(TextTrimming::CharacterEllipsis, statusBar->BranchText().TextTrimming());
+            VERIFY_ARE_EQUAL(VerticalAlignment::Center, statusBar->BranchText().VerticalAlignment());
+            VERIFY_ARE_EQUAL(VerticalAlignment::Center, statusBar->AddedItem().VerticalAlignment());
+            VERIFY_ARE_EQUAL(Automation::Peers::AccessibilityView::Raw, Automation::AutomationProperties::GetAccessibilityView(*statusBar));
+            VERIFY_ARE_EQUAL(Automation::Peers::AutomationLiveSetting::Off, Automation::AutomationProperties::GetLiveSetting(*statusBar));
+
+            Microsoft::Terminal::StatusBar::StatusBarSnapshot empty;
+            statusBar->ApplySnapshot(empty);
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->GitContent().Visibility());
+
+            empty.visible = false;
+            statusBar->ApplySnapshot(empty);
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->Visibility());
+
+            Microsoft::Terminal::StatusBar::GitSnapshot git;
+            git.environment.kind = Microsoft::Terminal::StatusBar::EnvironmentKind::LocalWindows;
+            git.worktreeRoot = L"C:\\src\\terminal";
+            git.branchName = L"feature/a-very-long-branch-name-that-must-not-wrap";
+            git.tracking = Microsoft::Terminal::StatusBar::GitTracking{ .upstream = L"origin/main", .ahead = 2, .behind = 3 };
+            git.changes = { .staged = true, .unstaged = true, .untracked = true };
+            git.lineChanges = Microsoft::Terminal::StatusBar::GitLineChanges{ .added = 134, .deleted = 42 };
+
+            Microsoft::Terminal::StatusBar::StatusBarSnapshot ready{
+                .visible = true,
+                .git = git,
+            };
+            statusBar->ApplySnapshot(ready);
+            statusBar->_UpdateResponsiveVisibility(800);
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->GitContent().Visibility());
+            VERIFY_ARE_EQUAL(Automation::Peers::AccessibilityView::Control, Automation::AutomationProperties::GetAccessibilityView(*statusBar));
+            const auto accessibleName{ Automation::AutomationProperties::GetName(*statusBar) };
+            VERIFY_IS_FALSE(accessibleName.empty());
+            VERIFY_ARE_EQUAL(accessibleName, winrt::unbox_value<winrt::hstring>(ToolTipService::GetToolTip(*statusBar)));
+            VERIFY_ARE_EQUAL(L"feature/a-very-long-branch-name-that-must-not-wrap", statusBar->BranchText().Text());
+            VERIFY_ARE_EQUAL(L"+134", statusBar->AddedItem().Text());
+            VERIFY_ARE_EQUAL(L"−42", statusBar->DeletedItem().Text());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->AheadItem().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->LineSeparator().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->StateSeparator().Visibility());
+            VERIFY_IS_TRUE(statusBar->StatesGroup().Children().GetAt(0) == statusBar->ConflictedItem());
+            VERIFY_IS_NULL(statusBar->UntrackedItem().try_as<FontIcon>());
+            VERIFY_IS_TRUE(std::wstring_view{ accessibleName }.find(L"Last reported") == std::wstring_view::npos);
+            VERIFY_IS_TRUE(std::wstring_view{ accessibleName }.find(L"updated") == std::wstring_view::npos);
+
+            statusBar->_UpdateResponsiveVisibility(460);
+            statusBar->Measure({ 460, gsl::narrow_cast<float>(TerminalApp::StatusBarPresentation::MinimumRowHeight) });
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->AddedItem().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->DeletedItem().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->ConflictedItem().Visibility());
+            VERIFY_IS_TRUE(statusBar->Rail().DesiredSize().Width <= 440.0);
+            VERIFY_IS_TRUE(statusBar->BranchText().MaxWidth() <= 300.0);
+            VERIFY_ARE_EQUAL(accessibleName, Automation::AutomationProperties::GetName(*statusBar));
+
+            statusBar->_UpdateResponsiveVisibility(200);
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->AheadItem().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->BehindItem().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->StagedItem().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->UnstagedItem().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->UntrackedItem().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->BranchText().Visibility());
+            VERIFY_ARE_EQUAL(24.0, statusBar->BranchText().MinWidth());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->AddedItem().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->DeletedItem().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->ConflictedItem().Visibility());
+            VERIFY_ARE_EQUAL(accessibleName, Automation::AutomationProperties::GetName(*statusBar));
+            VERIFY_ARE_EQUAL(accessibleName, winrt::unbox_value<winrt::hstring>(ToolTipService::GetToolTip(*statusBar)));
+
+            git.lineChanges = Microsoft::Terminal::StatusBar::GitLineChanges{
+                .added = UINT64_MAX,
+                .deleted = UINT64_MAX - 1,
+            };
+            ready.git = git;
+            statusBar->ApplySnapshot(ready);
+            statusBar->_UpdateResponsiveVisibility(200);
+            statusBar->Measure({ 200, gsl::narrow_cast<float>(TerminalApp::StatusBarPresentation::MinimumRowHeight) });
+            VERIFY_ARE_EQUAL(L"+9999+", statusBar->AddedItem().Text());
+            VERIFY_ARE_EQUAL(L"−9999+", statusBar->DeletedItem().Text());
+            VERIFY_IS_TRUE(statusBar->Rail().DesiredSize().Width <= 180.0);
+            const auto largeSummary{ Automation::AutomationProperties::GetName(*statusBar) };
+            VERIFY_IS_TRUE(std::wstring_view{ largeSummary }.find(std::to_wstring(UINT64_MAX)) != std::wstring_view::npos);
+
+            git.changes.conflicts = true;
+            ready.git = git;
+            statusBar->ApplySnapshot(ready);
+            statusBar->_UpdateResponsiveVisibility(200);
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->LinesGroup().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->ConflictedItem().Visibility());
+            const auto conflictSummary{ Automation::AutomationProperties::GetName(*statusBar) };
+            VERIFY_IS_TRUE(std::wstring_view{ conflictSummary }.find(L"line totals are unavailable") != std::wstring_view::npos);
+
+            git.changes = Microsoft::Terminal::StatusBar::GitChanges{ .untracked = true };
+            git.lineChanges = Microsoft::Terminal::StatusBar::GitLineChanges{};
+            ready.git = git;
+            statusBar->ApplySnapshot(ready);
+            statusBar->_UpdateResponsiveVisibility(200);
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->LinesGroup().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->UntrackedItem().Visibility());
+
+            git.changes = Microsoft::Terminal::StatusBar::GitChanges{ .unstaged = true };
+            git.lineChanges = Microsoft::Terminal::StatusBar::GitLineChanges{ .hasBinaryChanges = true };
+            ready.git = git;
+            statusBar->ApplySnapshot(ready);
+            statusBar->_UpdateResponsiveVisibility(200);
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, statusBar->LinesGroup().Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->UnstagedItem().Visibility());
+            const auto binaryTooltip{ winrt::unbox_value<winrt::hstring>(ToolTipService::GetToolTip(statusBar->UnstagedItem())) };
+            VERIFY_IS_TRUE(std::wstring_view{ binaryTooltip }.find(L"Binary tracked changes") != std::wstring_view::npos);
+
+            git.changes = Microsoft::Terminal::StatusBar::GitChanges{ .staged = true };
+            git.lineChanges = Microsoft::Terminal::StatusBar::GitLineChanges{};
+            ready.git = git;
+            statusBar->ApplySnapshot(ready);
+            statusBar->_UpdateResponsiveVisibility(200);
+            VERIFY_ARE_EQUAL(Visibility::Visible, statusBar->StagedItem().Visibility());
+        });
+
+        auto page{ _commonSetup() };
+        TestOnUIThread([&]() {
+            VERIFY_ARE_EQUAL(Visibility::Visible, page->_statusBar->Visibility());
+
+            page->SetFocusMode(true);
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, page->_statusBar->Visibility());
+
+            page->SetFocusMode(false);
+            page->SetFullscreen(true);
+            VERIFY_ARE_EQUAL(Visibility::Visible, page->_statusBar->Visibility());
+
+            page->_settings.GlobalSettings().ShowStatusBar(false);
+            page->_RefreshUIForSettingsReload();
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, page->_statusBar->Visibility());
+
+            page->_settings.GlobalSettings().ShowStatusBar(true);
+            page->_RefreshUIForSettingsReload();
+            VERIFY_ARE_EQUAL(Visibility::Visible, page->_statusBar->Visibility());
+
+            Microsoft::Terminal::StatusBar::StatusBarSnapshot empty;
+            page->ApplyStatusBarSnapshot(empty);
+            VERIFY_ARE_EQUAL(Visibility::Visible, page->_statusBar->Visibility());
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, page->_statusBar->GitContent().Visibility());
+
+            auto nonTerminalPane{ std::make_shared<Pane>(page->_makeSettingsContent()) };
+            auto nonTerminalTab{ winrt::make_self<winrt::TerminalApp::implementation::Tab>(nonTerminalPane) };
+            nonTerminalTab->Initialize();
+            page->_RebindStatusBarToTab(*nonTerminalTab);
+            VERIFY_IS_NULL(page->_statusBarObservedControl.get());
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, page->_statusBar->GitContent().Visibility());
+
+            page->_RebindStatusBarToTab(page->_tabs.GetAt(0));
+            VERIFY_IS_NOT_NULL(page->_statusBarObservedControl.get());
+
+            const auto staleBindingEpoch{ page->_statusBarBindingEpoch };
+            page->_RebindStatusBarToTab(page->_tabs.GetAt(0));
+            const auto currentBindingEpoch{ page->_statusBarBindingEpoch };
+            VERIFY_IS_TRUE(currentBindingEpoch > staleBindingEpoch);
+
+            Microsoft::Terminal::StatusBar::GitSnapshot git;
+            git.environment.kind = Microsoft::Terminal::StatusBar::EnvironmentKind::LocalWindows;
+            git.worktreeRoot = L"C:\\src\\terminal";
+            git.branchName = L"binding-epoch";
+            Microsoft::Terminal::StatusBar::StatusBarSnapshot ready{ .visible = true, .git = git };
+            page->ApplyStatusBarSnapshot(ready);
+            VERIFY_ARE_EQUAL(Visibility::Visible, page->_statusBar->GitContent().Visibility());
+
+            page->_StatusBarShellContextChanged(staleBindingEpoch, nullptr);
+            VERIFY_ARE_EQUAL(Visibility::Visible, page->_statusBar->GitContent().Visibility());
+
+            page->_StatusBarShellContextChanged(currentBindingEpoch, nullptr);
+            VERIFY_ARE_EQUAL(Visibility::Collapsed, page->_statusBar->GitContent().Visibility());
+        });
     }
 
     // Method Description:

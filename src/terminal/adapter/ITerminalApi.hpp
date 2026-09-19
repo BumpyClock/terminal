@@ -18,6 +18,7 @@ Author(s):
 #include "../../types/inc/IInputEvent.hpp"
 #include "../../buffer/out/LineRendition.hpp"
 #include "../../buffer/out/textBuffer.hpp"
+#include "../../cascadia/inc/ShellContext.h"
 #include "../../renderer/inc/RenderSettings.hpp"
 
 #include <deque>
@@ -82,6 +83,8 @@ namespace Microsoft::Console::VirtualTerminal
         virtual void CopyToClipboard(const wil::zwstring_view content) = 0;
         virtual void SetTaskbarProgress(const DispatchTypes::TaskbarState state, const size_t progress) = 0;
         virtual void SetWorkingDirectory(const std::wstring_view uri) = 0;
+        virtual void NotifyShellContextPath(Microsoft::Terminal::StatusBar::ShellContextPathState state, std::wstring_view path) = 0;
+        virtual void NotifyShellContextPhase(Microsoft::Terminal::StatusBar::ShellContextPhase phase) = 0;
         virtual void PlayMidiNote(const int noteNumber, const int velocity, const std::chrono::microseconds duration) = 0;
 
         virtual bool ResizeWindow(const til::CoordType width, const til::CoordType height) = 0;

@@ -5,6 +5,7 @@
 
 #include "FontSizeChangedArgs.g.h"
 #include "TitleChangedEventArgs.g.h"
+#include "ShellContextEventArgs.g.h"
 #include "ContextMenuRequestedEventArgs.g.h"
 #include "WriteToClipboardEventArgs.g.h"
 #include "PasteFromClipboardEventArgs.g.h"
@@ -47,6 +48,41 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             _Title(title) {}
 
         WINRT_PROPERTY(hstring, Title);
+    };
+
+    struct ShellContextEventArgs : public ShellContextEventArgsT<ShellContextEventArgs>
+    {
+    public:
+        ShellContextEventArgs(const winrt::guid connectionId,
+                              const TerminalConnection::ShellIntegrationEnvironmentKind environment,
+                              winrt::hstring wslDistro,
+                              winrt::hstring wslUser,
+                              const Control::ShellContextPathState pathState,
+                              winrt::hstring path,
+                              const Control::ShellContextPhase phase,
+                              const Control::ShellContextProvenance provenance,
+                              const uint64_t sequence) :
+            _ConnectionId(connectionId),
+            _Environment(environment),
+            _WslDistro(std::move(wslDistro)),
+            _WslUser(std::move(wslUser)),
+            _PathState(pathState),
+            _Path(std::move(path)),
+            _Phase(phase),
+            _Provenance(provenance),
+            _Sequence(sequence)
+        {
+        }
+
+        WINRT_PROPERTY(winrt::guid, ConnectionId);
+        WINRT_PROPERTY(TerminalConnection::ShellIntegrationEnvironmentKind, Environment);
+        WINRT_PROPERTY(winrt::hstring, WslDistro);
+        WINRT_PROPERTY(winrt::hstring, WslUser);
+        WINRT_PROPERTY(Control::ShellContextPathState, PathState);
+        WINRT_PROPERTY(winrt::hstring, Path);
+        WINRT_PROPERTY(Control::ShellContextPhase, Phase);
+        WINRT_PROPERTY(Control::ShellContextProvenance, Provenance);
+        WINRT_PROPERTY(uint64_t, Sequence);
     };
 
     struct ContextMenuRequestedEventArgs : public ContextMenuRequestedEventArgsT<ContextMenuRequestedEventArgs>

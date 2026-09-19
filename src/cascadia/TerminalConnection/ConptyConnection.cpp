@@ -8,11 +8,171 @@
 #include <winmeta.h>
 
 #include "CTerminalHandoff.h"
+#include "ShellIntegrationLaunch.h"
+#include "../inc/ShellContext.h"
 #include "../../types/inc/utils.hpp"
 
 #include "ConptyConnection.g.cpp"
 
 using namespace ::Microsoft::Console;
+
+namespace
+{
+    std::optional<std::wstring> ResolveWslDefaultShell(const std::wstring_view executable,
+                                                       const std::wstring_view distro,
+                                                       const std::wstring_view user,
+                                                       const std::stop_token cancellation) noexcept
+    try
+    {
+        if (cancellation.stop_requested())
+        {
+            return std::nullopt;
+        }
+
+        static constexpr std::wstring_view query{
+            LR"(uid=$(id -u 2>/dev/null)||exit;while IFS=: read -r _ _ entry_uid _ _ _ shell;do [ "$entry_uid" = "$uid" ]||continue;case "$shell" in /*/bash|/*/zsh) printf '%s' "$shell";;esac;exit;done </etc/passwd)"
+        };
+
+        std::vector<std::wstring> arguments{
+            std::wstring{ executable },
+            L"--distribution",
+            std::wstring{ distro },
+        };
+        if (!user.empty())
+        {
+            arguments.emplace_back(L"--user");
+            arguments.emplace_back(user);
+        }
+        arguments.emplace_back(L"--exec");
+        arguments.emplace_back(L"/bin/sh");
+        arguments.emplace_back(L"-c");
+        arguments.emplace_back(query);
+        auto commandline = ::Microsoft::Terminal::TerminalConnection::ShellIntegration::details::BuildCommandLine(arguments);
+
+        SECURITY_ATTRIBUTES securityAttributes{
+            .nLength = sizeof(SECURITY_ATTRIBUTES),
+            .lpSecurityDescriptor = nullptr,
+            .bInheritHandle = TRUE,
+        };
+        wil::unique_hfile outputRead;
+        wil::unique_hfile outputWrite;
+        THROW_IF_WIN32_BOOL_FALSE(CreatePipe(outputRead.put(), outputWrite.put(), &securityAttributes, 0));
+        THROW_IF_WIN32_BOOL_FALSE(SetHandleInformation(outputRead.get(), HANDLE_FLAG_INHERIT, 0));
+        wil::unique_hfile nullHandle{ CreateFileW(L"NUL",
+                                                 GENERIC_READ | GENERIC_WRITE,
+                                                 FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                                 &securityAttributes,
+                                                 OPEN_EXISTING,
+                                                 FILE_ATTRIBUTE_NORMAL,
+                                                 nullptr) };
+        THROW_LAST_ERROR_IF(!nullHandle);
+
+        STARTUPINFOEXW startupInfo{};
+        startupInfo.StartupInfo.cb = sizeof(startupInfo);
+        startupInfo.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+        startupInfo.StartupInfo.hStdInput = nullHandle.get();
+        startupInfo.StartupInfo.hStdOutput = outputWrite.get();
+        startupInfo.StartupInfo.hStdError = nullHandle.get();
+
+        SIZE_T attributeBytes{};
+        InitializeProcThreadAttributeList(nullptr, 1, 0, &attributeBytes);
+        auto attributeStorage = std::make_unique<std::byte[]>(attributeBytes);
+        startupInfo.lpAttributeList = reinterpret_cast<PPROC_THREAD_ATTRIBUTE_LIST>(attributeStorage.get());
+        THROW_IF_WIN32_BOOL_FALSE(InitializeProcThreadAttributeList(startupInfo.lpAttributeList, 1, 0, &attributeBytes));
+        const auto deleteAttributes = wil::scope_exit([&] {
+            DeleteProcThreadAttributeList(startupInfo.lpAttributeList);
+        });
+        const HANDLE inheritedHandles[]{ outputWrite.get(), nullHandle.get() };
+        THROW_IF_WIN32_BOOL_FALSE(UpdateProcThreadAttribute(
+            startupInfo.lpAttributeList,
+            0,
+            PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+            const_cast<HANDLE*>(inheritedHandles),
+            sizeof(inheritedHandles),
+            nullptr,
+            nullptr));
+
+        wil::unique_process_information process;
+        THROW_IF_WIN32_BOOL_FALSE(CreateProcessW(
+            nullptr,
+            commandline.data(),
+            nullptr,
+            nullptr,
+            TRUE,
+            CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT,
+            nullptr,
+            nullptr,
+            &startupInfo.StartupInfo,
+            &process));
+        outputWrite.reset();
+
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{ 5 };
+        for (;;)
+        {
+            const auto waitResult = WaitForSingleObject(process.hProcess, 50);
+            if (waitResult == WAIT_OBJECT_0)
+            {
+                break;
+            }
+            if (waitResult == WAIT_FAILED ||
+                cancellation.stop_requested() ||
+                std::chrono::steady_clock::now() >= deadline)
+            {
+                if (TerminateProcess(process.hProcess, ERROR_CANCELLED))
+                {
+                    WaitForSingleObject(process.hProcess, 1000);
+                }
+                else
+                {
+                    LOG_LAST_ERROR();
+                }
+                return std::nullopt;
+            }
+        }
+
+        if (cancellation.stop_requested())
+        {
+            return std::nullopt;
+        }
+
+        DWORD exitCode{};
+        THROW_IF_WIN32_BOOL_FALSE(GetExitCodeProcess(process.hProcess, &exitCode));
+        if (exitCode != 0)
+        {
+            return std::nullopt;
+        }
+
+        std::string output;
+        std::array<char, 512> buffer;
+        for (;;)
+        {
+            DWORD read{};
+            if (!ReadFile(outputRead.get(), buffer.data(), gsl::narrow<DWORD>(buffer.size()), &read, nullptr) || read == 0)
+            {
+                break;
+            }
+            if (output.size() + read > 4096)
+            {
+                return std::nullopt;
+            }
+            output.append(buffer.data(), read);
+        }
+
+        auto shell = til::u8u16(output);
+        while (!shell.empty() && std::iswspace(shell.back()))
+        {
+            shell.pop_back();
+        }
+        return ::Microsoft::Terminal::TerminalConnection::ShellIntegration::details::IsSupportedResolvedShell(shell) ?
+                   std::optional{ std::move(shell) } :
+                   std::nullopt;
+    }
+    catch (...)
+    {
+        LOG_CAUGHT_EXCEPTION();
+        return std::nullopt;
+    }
+}
 
 // Notes:
 // There is a number of ways that the Conpty connection can be terminated (voluntarily or not):
@@ -29,7 +189,7 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
 {
     // Function Description:
     // - launches the client application attached to the new pseudoconsole
-    void ConptyConnection::_LaunchAttachedClient()
+    void ConptyConnection::_LaunchAttachedClient(std::optional<::Microsoft::Terminal::TerminalConnection::ShellIntegration::PreparedLaunch> preparedLaunch)
     {
         STARTUPINFOEX siEx{ 0 };
         siEx.StartupInfo.cb = sizeof(STARTUPINFOEX);
@@ -52,8 +212,54 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
             nullptr,
             nullptr));
 
-        auto cmdline{ wil::ExpandEnvironmentStringsW<std::wstring>(_commandline.c_str()) }; // mutable copy -- required for CreateProcessW
+        auto cmdline = preparedLaunch ?
+                           preparedLaunch->commandline :
+                           wil::ExpandEnvironmentStringsW<std::wstring>(_commandline.c_str()); // mutable copy -- required for CreateProcessW
         auto environment = _initialEnv;
+        std::vector<::Microsoft::Terminal::TerminalConnection::ShellIntegration::EnvironmentEdit> shellIntegrationEnvironment;
+        bool addShellIntegrationRootToWslEnv{};
+        bool useBashLoginPromptBootstrap{};
+
+        {
+            auto prepared = preparedLaunch ?
+                                std::move(*preparedLaunch) :
+                                [&] {
+                if (_shellIntegrationAutomatic)
+                {
+                    return ::Microsoft::Terminal::TerminalConnection::ShellIntegration::PrepareLaunchAutomatically(
+                        cmdline,
+                        _shellIntegrationEnabled,
+                        _shellIntegrationAssetRoot);
+                }
+
+                ::Microsoft::Terminal::TerminalConnection::ShellIntegration::ShellIntegrationLaunchPolicy policy;
+                policy.enabled = _shellIntegrationEnabled;
+                policy.environment.kind = static_cast<::Microsoft::Terminal::StatusBar::EnvironmentKind>(_shellIntegrationEnvironment);
+                policy.environment.wslDistro = _shellIntegrationWslDistro;
+                policy.environment.wslUser = _shellIntegrationWslUser;
+                policy.helperAssetRoot = _shellIntegrationAssetRoot;
+                return ::Microsoft::Terminal::TerminalConnection::ShellIntegration::PrepareLaunch(cmdline, policy);
+            }();
+            if (prepared.Integrated())
+            {
+                cmdline = std::move(prepared.commandline);
+                shellIntegrationEnvironment = std::move(prepared.environment);
+                addShellIntegrationRootToWslEnv = prepared.addAssetRootToWslEnv;
+                useBashLoginPromptBootstrap = prepared.useBashLoginPromptBootstrap;
+                if (_shellIntegrationAutomatic)
+                {
+                    _shellIntegrationEnvironment = static_cast<ShellIntegrationEnvironmentKind>(prepared.executionEnvironment.kind);
+                    _shellIntegrationWslDistro = prepared.executionEnvironment.wslDistro;
+                    _shellIntegrationWslUser = prepared.executionEnvironment.wslUser;
+                }
+            }
+            else if (_shellIntegrationAutomatic)
+            {
+                _shellIntegrationEnvironment = ShellIntegrationEnvironmentKind::Unsupported;
+                _shellIntegrationWslDistro = {};
+                _shellIntegrationWslUser = {};
+            }
+        }
 
         {
             // Ensure every connection has the unique identifier in the environment.
@@ -85,17 +291,23 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
             }
 
             // WSLENV.3: Add our terminal-specific environment variables to WSLENV.
-            static constexpr std::wstring_view builtinWslEnvVars[] = {
-                L"WT_SESSION",
-                L"WT_PROFILE_ID",
+            static constexpr std::pair<std::wstring_view, std::wstring_view> builtinWslEnvVars[] = {
+                { L"WT_SESSION", {} },
+                { L"WT_PROFILE_ID", {} },
+                { L"WT_SHELL_INTEGRATION_ROOT", L"/p" },
             };
             // Misdiagnosis in MSVC 14.44.35207. No pointer arithmetic in sight.
 #pragma warning(suppress : 26481) // Don't use pointer arithmetic. Use span instead (bounds.1).
-            for (const auto& key : builtinWslEnvVars)
+            for (const auto& [key, flags] : builtinWslEnvVars)
             {
+                if (key == L"WT_SHELL_INTEGRATION_ROOT" && !addShellIntegrationRootToWslEnv)
+                {
+                    continue;
+                }
                 if (wslEnvVars.emplace(key).second)
                 {
                     additionalWslEnv.append(key);
+                    additionalWslEnv.append(flags);
                     additionalWslEnv.push_back(L':');
                 }
             }
@@ -148,6 +360,28 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
             }
         }
 
+        if (useBashLoginPromptBootstrap)
+        {
+            static constexpr std::wstring_view bootstrapCommand{
+                LR"(__wt_status=$?;if [ "$PROMPT_COMMAND" = "$WT_SHELL_INTEGRATION_EXPECTED_PROMPT_COMMAND" ];then __wt_root=$(cygpath -u "$WT_SHELL_INTEGRATION_ROOT" 2>/dev/null);__wt_bootstrap="$__wt_root/bash/windows-terminal-bootstrap.bash";[ ! -r "$__wt_bootstrap" ]||. "$__wt_bootstrap";fi)"
+            };
+            const auto originalPromptCommand = environment.as_map()[L"PROMPT_COMMAND"];
+            auto expectedPromptCommand = std::wstring{ bootstrapCommand };
+            if (!originalPromptCommand.empty())
+            {
+                expectedPromptCommand.push_back(L';');
+                expectedPromptCommand.append(originalPromptCommand);
+            }
+            environment.set_user_environment_var(L"WT_SHELL_INTEGRATION_ORIGINAL_PROMPT_COMMAND", originalPromptCommand);
+            environment.set_user_environment_var(L"WT_SHELL_INTEGRATION_EXPECTED_PROMPT_COMMAND", expectedPromptCommand);
+            environment.set_user_environment_var(L"PROMPT_COMMAND", expectedPromptCommand);
+        }
+
+        for (const auto& edit : shellIntegrationEnvironment)
+        {
+            environment.set_user_environment_var(edit.name, edit.value);
+        }
+
         auto newEnvVars = environment.to_string();
         const auto lpEnvironment = newEnvVars.empty() ? nullptr : newEnvVars.data();
 
@@ -163,6 +397,7 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
         auto [newCommandLine, newStartingDirectory] = Utils::MangleStartingDirectoryForWSL(cmdline, _startingDirectory);
         const auto startingDirectory = newStartingDirectory.size() > 0 ? newStartingDirectory.c_str() : nullptr;
 
+        THROW_HR_IF(HRESULT_FROM_WIN32(ERROR_CANCELLED), _startCancellation.stop_requested());
         THROW_IF_WIN32_BOOL_FALSE(CreateProcessW(
             nullptr,
             newCommandLine.data(),
@@ -242,6 +477,48 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
         return vs;
     }
 
+    void ConptyConnection::ConfigureShellIntegration(const Windows::Foundation::Collections::ValueSet& settings,
+                                                     const bool enabled,
+                                                     const ShellIntegrationEnvironmentKind environment,
+                                                     const winrt::hstring& wslDistro,
+                                                     const winrt::hstring& assetRoot)
+    {
+        ConfigureShellIntegrationWithUser(settings, enabled, environment, wslDistro, winrt::hstring{}, assetRoot);
+    }
+
+    void ConptyConnection::ConfigureShellIntegrationWithUser(const Windows::Foundation::Collections::ValueSet& settings,
+                                                             const bool enabled,
+                                                             const ShellIntegrationEnvironmentKind environment,
+                                                             const winrt::hstring& wslDistro,
+                                                             const winrt::hstring& wslUser,
+                                                             const winrt::hstring& assetRoot)
+    {
+        THROW_HR_IF(E_INVALIDARG, !settings);
+        static_assert(static_cast<uint32_t>(ShellIntegrationEnvironmentKind::Wsl) ==
+                      static_cast<uint32_t>(::Microsoft::Terminal::StatusBar::EnvironmentKind::Wsl));
+
+        settings.Insert(L"shellIntegrationEnabled", Windows::Foundation::PropertyValue::CreateBoolean(enabled));
+        settings.Insert(L"shellIntegrationAutomatic", Windows::Foundation::PropertyValue::CreateBoolean(false));
+        settings.Insert(L"shellIntegrationEnvironment", Windows::Foundation::PropertyValue::CreateUInt32(static_cast<uint32_t>(environment)));
+        settings.Insert(L"shellIntegrationWslDistro", Windows::Foundation::PropertyValue::CreateString(wslDistro));
+        settings.Insert(L"shellIntegrationWslUser", Windows::Foundation::PropertyValue::CreateString(wslUser));
+        settings.Insert(L"shellIntegrationAssetRoot", Windows::Foundation::PropertyValue::CreateString(assetRoot));
+    }
+
+    void ConptyConnection::ConfigureShellIntegrationForLaunch(const Windows::Foundation::Collections::ValueSet& settings,
+                                                              const bool enabled,
+                                                              const winrt::hstring& assetRoot)
+    {
+        THROW_HR_IF(E_INVALIDARG, !settings);
+
+        settings.Insert(L"shellIntegrationEnabled", Windows::Foundation::PropertyValue::CreateBoolean(enabled));
+        settings.Insert(L"shellIntegrationAutomatic", Windows::Foundation::PropertyValue::CreateBoolean(true));
+        settings.Insert(L"shellIntegrationEnvironment", Windows::Foundation::PropertyValue::CreateUInt32(static_cast<uint32_t>(ShellIntegrationEnvironmentKind::Unsupported)));
+        settings.Insert(L"shellIntegrationWslDistro", Windows::Foundation::PropertyValue::CreateString(L""));
+        settings.Insert(L"shellIntegrationWslUser", Windows::Foundation::PropertyValue::CreateString(L""));
+        settings.Insert(L"shellIntegrationAssetRoot", Windows::Foundation::PropertyValue::CreateString(assetRoot));
+    }
+
     void ConptyConnection::Initialize(const Windows::Foundation::Collections::ValueSet& settings)
     {
         if (settings)
@@ -258,6 +535,15 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
             _sessionId = unbox_prop_or<winrt::guid>(settings, L"sessionId", _sessionId);
             _environment = settings.TryLookup(L"environment").try_as<Windows::Foundation::Collections::ValueSet>();
             _profileGuid = unbox_prop_or<winrt::guid>(settings, L"profileGuid", _profileGuid);
+            _shellIntegrationEnabled = unbox_prop_or<bool>(settings, L"shellIntegrationEnabled", false);
+            _shellIntegrationAutomatic = unbox_prop_or<bool>(settings, L"shellIntegrationAutomatic", false);
+            const auto shellIntegrationEnvironment = unbox_prop_or<uint32_t>(settings, L"shellIntegrationEnvironment", 0);
+            _shellIntegrationEnvironment = shellIntegrationEnvironment <= static_cast<uint32_t>(ShellIntegrationEnvironmentKind::Wsl) ?
+                                               static_cast<ShellIntegrationEnvironmentKind>(shellIntegrationEnvironment) :
+                                               ShellIntegrationEnvironmentKind::Unsupported;
+            _shellIntegrationWslDistro = unbox_prop_or<winrt::hstring>(settings, L"shellIntegrationWslDistro", L"");
+            _shellIntegrationWslUser = unbox_prop_or<winrt::hstring>(settings, L"shellIntegrationWslUser", L"");
+            _shellIntegrationAssetRoot = unbox_prop_or<winrt::hstring>(settings, L"shellIntegrationAssetRoot", L"");
 
             _flags = 0;
 
@@ -387,6 +673,31 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
         return _commandline;
     }
 
+    bool ConptyConnection::ShellIntegrationEnabled() const noexcept
+    {
+        return _shellIntegrationEnabled;
+    }
+
+    ShellIntegrationEnvironmentKind ConptyConnection::ShellIntegrationEnvironment() const noexcept
+    {
+        return _shellIntegrationEnvironment;
+    }
+
+    winrt::hstring ConptyConnection::ShellIntegrationWslDistro() const
+    {
+        return _shellIntegrationWslDistro;
+    }
+
+    winrt::hstring ConptyConnection::ShellIntegrationWslUser() const
+    {
+        return _shellIntegrationWslUser;
+    }
+
+    winrt::hstring ConptyConnection::ShellIntegrationAssetRoot() const
+    {
+        return _shellIntegrationAssetRoot;
+    }
+
     winrt::hstring ConptyConnection::StartingTitle() const
     {
         return _startupInfo.title;
@@ -398,9 +709,68 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
     }
 
     void ConptyConnection::Start()
+    {
+        if (_startCancellation.stop_requested() || State() != ConnectionState::NotConnected)
+        {
+            return;
+        }
+
+        const auto commandline = wil::ExpandEnvironmentStringsW<std::wstring>(_commandline.c_str());
+        if (_shellIntegrationAutomatic &&
+            _shellIntegrationEnabled &&
+            ::Microsoft::Terminal::TerminalConnection::ShellIntegration::RequiresWslDefaultShellDiscovery(commandline))
+        {
+            if (_transitionToState(ConnectionState::Connecting))
+            {
+                _StartWithWslDiscovery();
+            }
+            return;
+        }
+
+        _Start(std::nullopt, false);
+    }
+
+    safe_void_coroutine ConptyConnection::_StartWithWslDiscovery()
+    {
+        [[maybe_unused]] const auto lifetime = get_strong();
+        winrt::apartment_context caller;
+        const auto commandline = wil::ExpandEnvironmentStringsW<std::wstring>(_commandline.c_str());
+        const auto enabled = _shellIntegrationEnabled;
+        const auto assetRoot = std::wstring{ _shellIntegrationAssetRoot.c_str() };
+        const auto cancellation = _startCancellation.get_token();
+
+        co_await winrt::resume_background();
+        auto prepared = ::Microsoft::Terminal::TerminalConnection::ShellIntegration::PrepareLaunchAutomatically(
+            commandline,
+            enabled,
+            assetRoot,
+            ResolveWslDefaultShell,
+            cancellation);
+        if (cancellation.stop_requested())
+        {
+            co_return;
+        }
+
+        co_await caller;
+        if (cancellation.stop_requested() || State() != ConnectionState::Connecting)
+        {
+            co_return;
+        }
+        _Start(std::move(prepared), true);
+    }
+
+    void ConptyConnection::_Start(std::optional<::Microsoft::Terminal::TerminalConnection::ShellIntegration::PreparedLaunch> preparedLaunch,
+                                  const bool alreadyConnecting)
     try
     {
-        _transitionToState(ConnectionState::Connecting);
+        if (_startCancellation.stop_requested())
+        {
+            return;
+        }
+        if (!alreadyConnecting && !_transitionToState(ConnectionState::Connecting))
+        {
+            return;
+        }
 
         const til::size dimensions{ gsl::narrow<til::CoordType>(_cols), gsl::narrow<til::CoordType>(_rows) };
 
@@ -423,7 +793,12 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
                 THROW_IF_FAILED(ConptyShowHidePseudoConsole(_hPC.get(), _initialVisibility));
             }
 
-            _LaunchAttachedClient();
+            if (_startCancellation.stop_requested())
+            {
+                _hPC.reset();
+                return;
+            }
+            _LaunchAttachedClient(std::move(preparedLaunch));
         }
         // But if it was an inbound handoff... attempt to synchronize the size of it with what our connection
         // window is expecting it to be on the first layout.
@@ -478,6 +853,12 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
     }
     catch (...)
     {
+        if (_startCancellation.stop_requested())
+        {
+            _hPC.reset();
+            return;
+        }
+
         // EXIT POINT
         const auto hr = wil::ResultFromCaughtException();
 
@@ -667,6 +1048,7 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
     void ConptyConnection::Close() noexcept
     try
     {
+        _startCancellation.request_stop();
         _transitionToState(ConnectionState::Closing);
 
         // This will signal ConPTY to send out a CTRL_CLOSE_EVENT to all attached clients.

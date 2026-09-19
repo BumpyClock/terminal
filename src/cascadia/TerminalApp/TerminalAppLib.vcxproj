@@ -61,6 +61,9 @@
     <Page Include="TabHeaderControl.xaml">
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="StatusBarControl.xaml">
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="HighlightedTextControlStyle.xaml">
       <Type>DefaultStyle</Type>
       <SubType>Designer</SubType>
@@ -92,6 +95,14 @@
     <ClInclude Include="GitHubDashboardLayout.h" />
     <ClInclude Include="GitHubDashboardData.h" />
     <ClInclude Include="LanguageProfileNotifier.h" />
+    <ClInclude Include="GitStatusProvider.h" />
+    <ClInclude Include="GitStatus.h" />
+    <ClInclude Include="GitStatusParser.h" />
+    <ClInclude Include="StatusBarPresentation.h" />
+    <ClInclude Include="StatusBarCoordinator.h" />
+    <ClInclude Include="StatusBarControl.h">
+      <DependentUpon>StatusBarControl.xaml</DependentUpon>
+    </ClInclude>
     <ClInclude Include="MinMaxCloseControl.h">
       <DependentUpon>MinMaxCloseControl.xaml</DependentUpon>
     </ClInclude>
@@ -199,6 +210,13 @@
     <ClCompile Include="GitHubDashboardCache.cpp" />
     <ClCompile Include="GitHubDashboardTransport.cpp" />
     <ClCompile Include="LanguageProfileNotifier.cpp" />
+    <ClCompile Include="GitStatusProvider.cpp" />
+    <ClCompile Include="GitStatusParser.cpp" />
+    <ClCompile Include="StatusBarPresentation.cpp" />
+    <ClCompile Include="StatusBarCoordinator.cpp" />
+    <ClCompile Include="StatusBarControl.cpp">
+      <DependentUpon>StatusBarControl.xaml</DependentUpon>
+    </ClCompile>
     <ClCompile Include="MinMaxCloseControl.cpp">
       <DependentUpon>MinMaxCloseControl.xaml</DependentUpon>
     </ClCompile>
@@ -348,6 +366,10 @@
     </Midl>
     <Midl Include="TabHeaderControl.idl">
       <DependentUpon>TabHeaderControl.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="StatusBarControl.idl">
+      <DependentUpon>StatusBarControl.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
     <Midl Include="HighlightedTextControl.idl">

@@ -3,6 +3,7 @@
 
 #include "pch.h"
 #include "TerminalWindow.h"
+#include "StatusBarPresentation.h"
 
 #include "AppLogic.h"
 
@@ -635,6 +636,11 @@ namespace winrt::TerminalApp::implementation
             // this math.
             static constexpr auto tabRowHeight = 32;
             proposedSize.Height += (tabRowHeight + 10) * scale;
+        }
+
+        if (_settings.GlobalSettings().ShowStatusBar() && !focusMode)
+        {
+            proposedSize.Height += static_cast<float>(::TerminalApp::StatusBarPresentation::MinimumRowHeight) * scale;
         }
 
         return proposedSize;

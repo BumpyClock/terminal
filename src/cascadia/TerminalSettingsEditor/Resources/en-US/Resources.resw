@@ -2899,4 +2899,12 @@ This action is applied immediately and cannot be undone.</value>
     <value>System integration and notifications</value>
     <comment>Title of a section that groups settings related to system integration and notifications.</comment>
   </data>
+  <data name="Globals_ShowStatusBar.Header" xml:space="preserve">
+    <value>Show status bar</value>
+    <comment>Header for the global Appearance toggle that controls the bottom status bar.</comment>
+  </data>
+  <data name="Globals_ShowStatusBar.Description" xml:space="preserve">
+    <value>Show repository status for the active terminal at the bottom of the window.</value>
+    <comment>Description for the global Appearance status-bar toggle.</comment>
+  </data>
 </root>

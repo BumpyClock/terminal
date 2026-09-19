@@ -539,6 +539,11 @@ namespace winrt::TerminalApp::implementation
         // To close the window here, we need to close the hosting window.
         if (_tabs.Size() == 0)
         {
+            _RebindStatusBarToFocusedPane();
+            if (_statusBarCoordinator)
+            {
+                _statusBarCoordinator->Close();
+            }
             // If we are supposed to save state, make sure we clear it out
             // if the user manually closed all tabs.
             // Do this only if we are the last window; the monarch will notice
@@ -1091,6 +1096,8 @@ namespace winrt::TerminalApp::implementation
 
     void TerminalPage::_UpdatedSelectedTab(const winrt::TerminalApp::Tab& tab)
     {
+        _RebindStatusBarToTab(tab);
+
         // Unfocus all the tabs.
         for (const auto& tab : _tabs)
         {
@@ -1163,6 +1170,10 @@ namespace winrt::TerminalApp::implementation
             {
                 const auto tab{ _tabs.GetAt(selectedIndex) };
                 _UpdatedSelectedTab(tab);
+            }
+            else
+            {
+                _RebindStatusBarToFocusedPane();
             }
         }
     }

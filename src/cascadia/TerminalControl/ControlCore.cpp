@@ -121,6 +121,37 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         auto pfnTitleChanged = [this](auto&& PH1) { _terminalTitleChanged(std::forward<decltype(PH1)>(PH1)); };
         _terminal->SetTitleChangedCallback(pfnTitleChanged);
 
+        _terminal->SetShellContextChangedCallback([this, weakThis = get_weak()](auto report) mutable {
+            const auto connectionGeneration = _shellContextConnectionGeneration.load(std::memory_order_relaxed);
+            {
+                const std::lock_guard lock{ _shellContextReportMutex };
+                _latestShellContextReport.emplace(connectionGeneration, report);
+            }
+
+            DispatcherQueue dispatcher{ nullptr };
+            uint64_t dispatcherGeneration{};
+            {
+                const std::lock_guard lock{ _shellContextDispatcherMutex };
+                dispatcher = _shellContextDispatcher;
+                dispatcherGeneration = _shellContextDispatcherGeneration.load(std::memory_order_relaxed);
+            }
+
+            if (!dispatcher)
+            {
+                return;
+            }
+
+            dispatcher.TryEnqueue(DispatcherQueuePriority::Normal, [weakThis, report = std::move(report), connectionGeneration, dispatcherGeneration]() mutable {
+                if (const auto self = weakThis.get();
+                    self &&
+                    !self->_IsClosing() &&
+                    dispatcherGeneration == self->_shellContextDispatcherGeneration.load(std::memory_order_relaxed))
+                {
+                    self->_publishShellContext(std::move(report), connectionGeneration);
+                }
+            });
+        });
+
         auto pfnScrollPositionChanged = [this](auto&& PH1, auto&& PH2, auto&& PH3) { _terminalScrollPositionChanged(std::forward<decltype(PH1)>(PH1), std::forward<decltype(PH2)>(PH2), std::forward<decltype(PH3)>(PH3)); };
         _terminal->SetScrollPositionChangedCallback(pfnScrollPositionChanged);
 
@@ -192,6 +223,12 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         {
             auto controller{ winrt::Windows::System::DispatcherQueueController::CreateOnDedicatedThread() };
             _dispatcher = controller.DispatcherQueue();
+        }
+
+        {
+            const std::lock_guard lock{ _shellContextDispatcherMutex };
+            _shellContextDispatcher = _dispatcher;
+            _shellContextDispatcherGeneration.fetch_add(1, std::memory_order_relaxed);
         }
 
         const auto shared = _shared.lock();
@@ -283,6 +320,11 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         // Disable the renderer, so that it doesn't try to start any new frames
         // for our engines while we're not attached to anything.
         _renderer->TriggerTeardown();
+        {
+            const std::lock_guard lock{ _shellContextDispatcherMutex };
+            _shellContextDispatcher = nullptr;
+            _shellContextDispatcherGeneration.fetch_add(1, std::memory_order_relaxed);
+        }
 
         // Clear out any throttled funcs that we had wired up to run on this UI
         // thread. These will be recreated in _setupDispatcherAndCallbacks, when
@@ -295,6 +337,17 @@ namespace winrt::Microsoft::Terminal::Control::implementation
     void ControlCore::AttachToNewControl()
     {
         _setupDispatcherAndCallbacks();
+
+        std::optional<std::pair<uint64_t, ::Microsoft::Terminal::StatusBar::ShellContextReport>> latestReport;
+        {
+            const std::lock_guard lock{ _shellContextReportMutex };
+            latestReport = _latestShellContextReport;
+        }
+        if (latestReport)
+        {
+            _publishShellContext(std::move(latestReport->second), latestReport->first);
+        }
+
         // Bubble this up, so our new control knows how big we want the font.
         _raiseFontSizeChanged();
 
@@ -319,8 +372,22 @@ namespace winrt::Microsoft::Terminal::Control::implementation
     {
         auto oldState = ConnectionState(); // rely on ControlCore's automatic null handling
         // revoke ALL old handlers immediately
-
         _closeConnection();
+
+        _shellContextConnectionGeneration.fetch_add(1, std::memory_order_relaxed);
+        {
+            const std::lock_guard lock{ _shellContextReportMutex };
+            _latestShellContextReport.reset();
+        }
+        if (_shellContext)
+        {
+            _shellContext = nullptr;
+            ShellContextChanged.raise(*this, nullptr);
+        }
+        {
+            const auto lock = _terminal->LockForWriting();
+            _terminal->ResetShellContext();
+        }
 
         _connection = newConnection;
         if (_connection)
@@ -1551,6 +1618,11 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         return hstring{ _terminal->GetWorkingDirectory() };
     }
 
+    Control::ShellContextEventArgs ControlCore::ShellContext() const
+    {
+        return _shellContext;
+    }
+
     bool ControlCore::BracketedPasteEnabled() const noexcept
     {
         const auto lock = _terminal->LockForReading();
@@ -1644,6 +1716,52 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         // then the Terminal already has the write lock when calling this
         // callback.
         TitleChanged.raise(*this, winrt::make<TitleChangedEventArgs>(winrt::hstring{ wstr }));
+    }
+
+    void ControlCore::_publishShellContext(::Microsoft::Terminal::StatusBar::ShellContextReport report, const uint64_t connectionGeneration)
+    {
+        if (connectionGeneration != _shellContextConnectionGeneration.load(std::memory_order_relaxed))
+        {
+            return;
+        }
+
+        if (!_connection)
+        {
+            return;
+        }
+
+        const auto info = _connection.try_as<TerminalConnection::IShellIntegrationConnectionInfo>();
+        if (!info || !info.ShellIntegrationEnabled())
+        {
+            return;
+        }
+
+        const auto environment = info.ShellIntegrationEnvironment();
+        if (environment == TerminalConnection::ShellIntegrationEnvironmentKind::Unsupported ||
+            (environment == TerminalConnection::ShellIntegrationEnvironmentKind::Wsl && info.ShellIntegrationWslDistro().empty()))
+        {
+            return;
+        }
+
+        static_assert(static_cast<uint32_t>(::Microsoft::Terminal::StatusBar::ShellContextPathState::NonFileSystem) ==
+                      static_cast<uint32_t>(Control::ShellContextPathState::NonFileSystem));
+        static_assert(static_cast<uint32_t>(::Microsoft::Terminal::StatusBar::ShellContextPhase::Output) ==
+                      static_cast<uint32_t>(Control::ShellContextPhase::Output));
+        static_assert(static_cast<uint32_t>(::Microsoft::Terminal::StatusBar::ShellContextProvenance::ShellReported) ==
+                      static_cast<uint32_t>(Control::ShellContextProvenance::ShellReported));
+
+        auto context = winrt::make<ShellContextEventArgs>(
+            _connection.SessionId(),
+            environment,
+            info.ShellIntegrationWslDistro(),
+            info.ShellIntegrationWslUser(),
+            static_cast<Control::ShellContextPathState>(report.pathState),
+            winrt::hstring{ report.path },
+            static_cast<Control::ShellContextPhase>(report.phase),
+            static_cast<Control::ShellContextProvenance>(report.provenance),
+            report.sequence);
+        _shellContext = context;
+        ShellContextChanged.raise(*this, std::move(context));
     }
 
     // Method Description:

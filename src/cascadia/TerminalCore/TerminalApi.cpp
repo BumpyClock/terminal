@@ -234,6 +234,35 @@ void Terminal::SetWorkingDirectory(std::wstring_view uri)
     _workingDirectory = uri;
 }
 
+void Terminal::NotifyShellContextPath(const Microsoft::Terminal::StatusBar::ShellContextPathState state, std::wstring_view path)
+{
+    _assertLocked();
+
+    _shellContext.pathState = state;
+    _shellContext.path = state == Microsoft::Terminal::StatusBar::ShellContextPathState::FileSystem ?
+                             std::wstring{ path } :
+                             std::wstring{};
+    ++_shellContext.sequence;
+
+    if (_pfnShellContextChanged)
+    {
+        _pfnShellContextChanged(_shellContext);
+    }
+}
+
+void Terminal::NotifyShellContextPhase(const Microsoft::Terminal::StatusBar::ShellContextPhase phase)
+{
+    _assertLocked();
+
+    _shellContext.phase = phase;
+    ++_shellContext.sequence;
+
+    if (_pfnShellContextChanged)
+    {
+        _pfnShellContextChanged(_shellContext);
+    }
+}
+
 void Terminal::PlayMidiNote(const int noteNumber, const int velocity, const std::chrono::microseconds duration)
 {
     _pfnPlayMidiNote(noteNumber, velocity, duration);

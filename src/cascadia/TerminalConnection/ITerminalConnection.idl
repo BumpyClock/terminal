@@ -13,6 +13,13 @@ namespace Microsoft.Terminal.TerminalConnection
         Failed
     };
 
+    enum ShellIntegrationEnvironmentKind
+    {
+        Unsupported = 0,
+        LocalWindows = 1,
+        Wsl = 2
+    };
+
     delegate void TerminalOutputHandler(Char[] output);
 
     interface ITerminalConnection
@@ -29,5 +36,14 @@ namespace Microsoft.Terminal.TerminalConnection
 
         Guid SessionId { get; };
         ConnectionState State { get; };
+    };
+
+    interface IShellIntegrationConnectionInfo
+    {
+        Boolean ShellIntegrationEnabled { get; };
+        ShellIntegrationEnvironmentKind ShellIntegrationEnvironment { get; };
+        String ShellIntegrationWslDistro { get; };
+        String ShellIntegrationWslUser { get; };
+        String ShellIntegrationAssetRoot { get; };
     };
 }

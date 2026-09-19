@@ -25,6 +25,7 @@ Author(s):
     X(bool, DebugFeaturesEnabled, "debugFeatures", debugFeaturesDefault)                                                           \
     X(Model::WindowingMode, WindowingBehavior, "windowingBehavior", Model::WindowingMode::UseNew)                                  \
     X(bool, AlwaysShowNotificationIcon, "alwaysShowNotificationIcon", false)                                                       \
+    X(bool, ShowStatusBar, "showStatusBar", true)                                                                                   \
     X(winrt::Windows::Foundation::Collections::IVector<winrt::hstring>, DisabledProfileSources, "disabledProfileSources", nullptr) \
     X(bool, AllowHeadless, "compatibility.allowHeadless", false)                                                                   \
     X(bool, EnableColorSelection, "experimental.enableColorSelection", false)

@@ -99,6 +99,7 @@ public:
     void SetOptionalFeatures(winrt::Microsoft::Terminal::Core::ICoreSettings settings);
     bool IsXtermBracketedPasteModeEnabled() const noexcept;
     std::wstring_view GetWorkingDirectory() noexcept;
+    void ResetShellContext() noexcept;
 
     til::point GetViewportRelativeCursorPosition() const noexcept;
 
@@ -152,6 +153,8 @@ public:
     void CopyToClipboard(wil::zwstring_view content) override;
     void SetTaskbarProgress(const ::Microsoft::Console::VirtualTerminal::DispatchTypes::TaskbarState state, const size_t progress) override;
     void SetWorkingDirectory(std::wstring_view uri) override;
+    void NotifyShellContextPath(Microsoft::Terminal::StatusBar::ShellContextPathState state, std::wstring_view path) override;
+    void NotifyShellContextPhase(Microsoft::Terminal::StatusBar::ShellContextPhase phase) override;
     void PlayMidiNote(const int noteNumber, const int velocity, const std::chrono::microseconds duration) override;
     void ShowWindow(bool showOrHide) override;
     void UseAlternateScreenBuffer(const TextAttribute& attrs) override;
@@ -228,6 +231,7 @@ public:
     void SetWriteInputCallback(std::function<void(std::wstring_view)> pfn) noexcept;
     void SetWarningBellCallback(std::function<void()> pfn) noexcept;
     void SetTitleChangedCallback(std::function<void(std::wstring_view)> pfn) noexcept;
+    void SetShellContextChangedCallback(std::function<void(Microsoft::Terminal::StatusBar::ShellContextReport)> pfn) noexcept;
     void SetCopyToClipboardCallback(std::function<void(wil::zwstring_view)> pfn) noexcept;
     void SetScrollPositionChangedCallback(std::function<void(const int, const int, const int)> pfn) noexcept;
     void TaskbarProgressChangedCallback(std::function<void()> pfn) noexcept;
@@ -328,6 +332,7 @@ private:
     std::function<void(std::wstring_view)> _pfnWriteInput;
     std::function<void()> _pfnWarningBell;
     std::function<void(std::wstring_view)> _pfnTitleChanged;
+    std::function<void(Microsoft::Terminal::StatusBar::ShellContextReport)> _pfnShellContextChanged;
     std::function<void(wil::zwstring_view)> _pfnCopyToClipboard;
 
     // I've specifically put this instance here as it requires
@@ -382,6 +387,7 @@ private:
 
     std::wstring _answerbackMessage;
     std::wstring _workingDirectory;
+    Microsoft::Terminal::StatusBar::ShellContextReport _shellContext;
     bool _highContrastMode = false;
 
     // This default fake font value is only used to check if the font is a raster font.

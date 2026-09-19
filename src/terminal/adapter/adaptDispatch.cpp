@@ -17,6 +17,72 @@ using namespace Microsoft::Console::Render;
 using namespace Microsoft::Console::VirtualTerminal;
 
 static constexpr std::wstring_view whitespace{ L" " };
+static constexpr size_t maximumShellContextPathLength{ 32768 };
+
+static bool decodeShellIntegrationValue(const std::wstring_view value, std::wstring& result)
+{
+    if (value.size() > maximumShellContextPathLength)
+    {
+        return false;
+    }
+
+    const auto hexValue = [](const wchar_t ch) -> int {
+        if (ch >= L'0' && ch <= L'9')
+        {
+            return ch - L'0';
+        }
+        if (ch >= L'a' && ch <= L'f')
+        {
+            return ch - L'a' + 10;
+        }
+        if (ch >= L'A' && ch <= L'F')
+        {
+            return ch - L'A' + 10;
+        }
+        return -1;
+    };
+
+    result.clear();
+    result.reserve(value.size());
+    for (size_t index = 0; index < value.size(); ++index)
+    {
+        const auto ch = value[index];
+        if (ch != L'\\')
+        {
+            result.push_back(ch);
+            continue;
+        }
+
+        if (++index >= value.size())
+        {
+            return false;
+        }
+        if (value[index] == L'\\')
+        {
+            result.push_back(L'\\');
+            continue;
+        }
+        if (value[index] != L'x' || index + 2 >= value.size())
+        {
+            return false;
+        }
+
+        const auto high = hexValue(value[index + 1]);
+        const auto low = hexValue(value[index + 2]);
+        if (high < 0 || low < 0)
+        {
+            return false;
+        }
+        const auto decoded = gsl::narrow_cast<wchar_t>((high << 4) | low);
+        if (decoded == L'\0')
+        {
+            return false;
+        }
+        result.push_back(decoded);
+        index += 2;
+    }
+    return true;
+}
 
 struct XtermResourceColorTableEntry
 {
@@ -3767,6 +3833,8 @@ void AdaptDispatch::DoFinalTermAction(const std::wstring_view string)
 // Method Description:
 // - Performs a VsCode action
 // - Currently, the actions we support are:
+//   * A/B/C/D: shell prompt and command phases.
+//   * P;Cwd=: an environment-native shell-reported working directory.
 //   * Completions: An experimental protocol for passing shell completion
 //     information from the shell to the terminal. This sequence is still under
 //     active development, and subject to change.
@@ -3775,19 +3843,50 @@ void AdaptDispatch::DoFinalTermAction(const std::wstring_view string)
 // - string: contains the parameters that define which action we do
 void AdaptDispatch::DoVsCodeAction(const std::wstring_view string)
 {
-    if constexpr (!Feature_ShellCompletions::IsEnabled())
+    static constexpr std::wstring_view cwdPrefix{ L"P;Cwd=" };
+    if (string.starts_with(cwdPrefix))
     {
+        const auto encodedPath = string.substr(cwdPrefix.size());
+        if (encodedPath.empty())
+        {
+            _api.NotifyShellContextPath(Microsoft::Terminal::StatusBar::ShellContextPathState::NonFileSystem, {});
+            return;
+        }
+
+        std::wstring path;
+        if (decodeShellIntegrationValue(encodedPath, path))
+        {
+            _api.NotifyShellContextPath(Microsoft::Terminal::StatusBar::ShellContextPathState::FileSystem, path);
+        }
         return;
     }
 
     const auto parts = Utils::SplitString(string, L';');
-
     if (parts.size() < 1)
     {
         return;
     }
 
     const auto action = til::at(parts, 0);
+    if (action.size() == 1)
+    {
+        switch (action.front())
+        {
+        case L'A':
+        case L'B':
+        case L'D':
+            _api.NotifyShellContextPhase(Microsoft::Terminal::StatusBar::ShellContextPhase::Prompt);
+            return;
+        case L'C':
+            _api.NotifyShellContextPhase(Microsoft::Terminal::StatusBar::ShellContextPhase::Command);
+            return;
+        }
+    }
+
+    if constexpr (!Feature_ShellCompletions::IsEnabled())
+    {
+        return;
+    }
 
     if (action == L"Completions")
     {

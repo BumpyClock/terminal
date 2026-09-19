@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <TerminalShellIntegrationAsset Include="$(OpenConsoleDir)src\cascadia\ShellIntegration\powershell\windows-terminal.ps1">
+      <TargetPath>ShellIntegration\powershell\windows-terminal.ps1</TargetPath>
+    </TerminalShellIntegrationAsset>
+    <TerminalShellIntegrationAsset Include="$(OpenConsoleDir)src\cascadia\ShellIntegration\bash\windows-terminal.bash">
+      <TargetPath>ShellIntegration\bash\windows-terminal.bash</TargetPath>
+    </TerminalShellIntegrationAsset>
+    <TerminalShellIntegrationAsset Include="$(OpenConsoleDir)src\cascadia\ShellIntegration\bash\windows-terminal-bootstrap.bash">
+      <TargetPath>ShellIntegration\bash\windows-terminal-bootstrap.bash</TargetPath>
+    </TerminalShellIntegrationAsset>
+    <TerminalShellIntegrationAsset Include="$(OpenConsoleDir)src\cascadia\ShellIntegration\bash\windows-terminal-wsl.sh">
+      <TargetPath>ShellIntegration\bash\windows-terminal-wsl.sh</TargetPath>
+    </TerminalShellIntegrationAsset>
+    <TerminalShellIntegrationAsset Include="$(OpenConsoleDir)src\cascadia\ShellIntegration\zsh\.zshenv">
+      <TargetPath>ShellIntegration\zsh\.zshenv</TargetPath>
+    </TerminalShellIntegrationAsset>
+    <TerminalShellIntegrationAsset Include="$(OpenConsoleDir)src\cascadia\ShellIntegration\zsh\.zprofile">
+      <TargetPath>ShellIntegration\zsh\.zprofile</TargetPath>
+    </TerminalShellIntegrationAsset>
+    <TerminalShellIntegrationAsset Include="$(OpenConsoleDir)src\cascadia\ShellIntegration\zsh\.zshrc">
+      <TargetPath>ShellIntegration\zsh\.zshrc</TargetPath>
+    </TerminalShellIntegrationAsset>
+    <TerminalShellIntegrationAsset Include="$(OpenConsoleDir)src\cascadia\ShellIntegration\zsh\windows-terminal.zsh">
+      <TargetPath>ShellIntegration\zsh\windows-terminal.zsh</TargetPath>
+    </TerminalShellIntegrationAsset>
+  </ItemGroup>
+</Project>

@@ -61,6 +61,40 @@ namespace Microsoft.Terminal.Control
         String Title;
     }
 
+    enum ShellContextPathState
+    {
+        Unknown = 0,
+        FileSystem = 1,
+        NonFileSystem = 2
+    };
+
+    enum ShellContextPhase
+    {
+        Unknown = 0,
+        Prompt = 1,
+        Command = 2,
+        Output = 3
+    };
+
+    enum ShellContextProvenance
+    {
+        Unknown = 0,
+        ShellReported = 1
+    };
+
+    runtimeclass ShellContextEventArgs
+    {
+        Guid ConnectionId { get; };
+        Microsoft.Terminal.TerminalConnection.ShellIntegrationEnvironmentKind Environment { get; };
+        String WslDistro { get; };
+        String WslUser { get; };
+        ShellContextPathState PathState { get; };
+        String Path { get; };
+        ShellContextPhase Phase { get; };
+        ShellContextProvenance Provenance { get; };
+        UInt64 Sequence { get; };
+    }
+
     runtimeclass WriteToClipboardEventArgs
     {
         String Plain { get; }; // UTF-16, as required by CF_UNICODETEXT

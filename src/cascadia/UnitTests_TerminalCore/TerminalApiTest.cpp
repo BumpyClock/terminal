@@ -39,6 +39,7 @@ namespace TerminalCoreUnitTests
 
         TEST_METHOD(SetTaskbarProgress);
         TEST_METHOD(SetWorkingDirectory);
+        TEST_METHOD(ShellContextReporting);
     };
 };
 
@@ -390,4 +391,39 @@ void TerminalCoreUnitTests::TerminalApiTest::SetWorkingDirectory()
 
     stateMachine.ProcessString(L"\x1b]9;9;D:\\中文\x1b\\");
     VERIFY_ARE_EQUAL(term.GetWorkingDirectory(), L"D:\\中文");
+}
+
+void TerminalCoreUnitTests::TerminalApiTest::ShellContextReporting()
+{
+    using Microsoft::Terminal::StatusBar::ShellContextPathState;
+    using Microsoft::Terminal::StatusBar::ShellContextPhase;
+    using Microsoft::Terminal::StatusBar::ShellContextReport;
+
+    Terminal term{ Terminal::TestDummyMarker{} };
+    DummyRenderer renderer{ &term };
+    term.Create({ 80, 25 }, 0, renderer);
+
+    std::vector<ShellContextReport> reports;
+    term.SetShellContextChangedCallback([&](auto report) {
+        reports.emplace_back(std::move(report));
+    });
+
+    auto& stateMachine = term.GetStateMachine();
+    stateMachine.ProcessString(L"\x1b]633;P;Cwd=C:\\x5crepo\x07");
+    stateMachine.ProcessString(L"\x1b]633;C\x07");
+    stateMachine.ProcessString(L"\x1b]633;D;0\x07");
+    stateMachine.ProcessString(L"\x1b]633;P;Cwd=\x07");
+
+    VERIFY_ARE_EQUAL(static_cast<size_t>(4), reports.size());
+    VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPathState::FileSystem), static_cast<int>(reports[0].pathState));
+    VERIFY_ARE_EQUAL(std::wstring{ L"C:\\repo" }, reports[0].path);
+    VERIFY_ARE_EQUAL(static_cast<uint64_t>(1), reports[0].sequence);
+    VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPhase::Command), static_cast<int>(reports[1].phase));
+    VERIFY_ARE_EQUAL(static_cast<uint64_t>(2), reports[1].sequence);
+    VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPhase::Prompt), static_cast<int>(reports[2].phase));
+    VERIFY_ARE_EQUAL(static_cast<uint64_t>(3), reports[2].sequence);
+    VERIFY_ARE_EQUAL(static_cast<int>(ShellContextPathState::NonFileSystem), static_cast<int>(reports[3].pathState));
+    VERIFY_IS_TRUE(reports[3].path.empty());
+    VERIFY_ARE_EQUAL(static_cast<uint64_t>(4), reports[3].sequence);
+    VERIFY_IS_TRUE(term.GetWorkingDirectory().empty());
 }

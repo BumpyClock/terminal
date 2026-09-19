@@ -24,6 +24,9 @@
     <ClCompile Include="JsonUtilsTests.cpp" />
     <ClCompile Include="GitHubDashboardTests.cpp" />
     <ClCompile Include="FzfTests.cpp" />
+    <ClCompile Include="GitStatusTests.cpp" />
+    <ClCompile Include="ShellIntegrationTests.cpp" />
+    <ClCompile Include="StatusBarTests.cpp" />
     <ClCompile Include="precomp.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -32,6 +35,7 @@
   <!-- ========================= Project References ======================== -->
   <ItemGroup>
     <ProjectReference Include="$(OpenConsoleDir)\src\cascadia\TerminalApp\TerminalAppLib.vcxproj" />
+    <ProjectReference Include="$(OpenConsoleDir)src\cascadia\TerminalConnection\TerminalConnection.vcxproj" />
     <ProjectReference Include="$(OpenConsoleDir)\src\cascadia\TerminalSettingsModel\Microsoft.Terminal.Settings.ModelLib.vcxproj" />
     <ProjectReference Include="$(OpenConsoleDir)\src\types\lib\types.vcxproj" />
     <ProjectReference Include="$(OpenConsoleDir)src\propslib\propslib.vcxproj" />
@@ -48,7 +52,7 @@
       <DisableSpecificWarnings>4702;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>WindowsApp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>WindowsApp.lib;Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <!--
       SettingsModelLib contains a DllMain that we need to force the use of.
       If you don't have this, then you'll see an error like
@@ -101,4 +105,9 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
 
+  <Target Name="CopyShellIntegrationTestRuntime" AfterTargets="Build">
+    <Copy SourceFiles="$(OpenConsoleCommonOutDir)TerminalConnection\TerminalConnection.dll"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

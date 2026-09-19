@@ -6,6 +6,7 @@
 #include "ConptyConnection.g.h"
 #include "BaseTerminalConnection.h"
 #include "ITerminalHandoff.h"
+#include "ShellIntegrationLaunch.h"
 
 #include <til/env.h>
 #include <til/ticket_lock.h>
@@ -36,6 +37,12 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
         winrt::hstring StartingTitle() const;
         WORD ShowWindow() const noexcept;
 
+        bool ShellIntegrationEnabled() const noexcept;
+        ShellIntegrationEnvironmentKind ShellIntegrationEnvironment() const noexcept;
+        winrt::hstring ShellIntegrationWslDistro() const;
+        winrt::hstring ShellIntegrationWslUser() const;
+        winrt::hstring ShellIntegrationAssetRoot() const;
+
         static void StartInboundListener();
 
         static winrt::event_token NewConnection(const NewConnectionHandler& handler);
@@ -51,6 +58,20 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
                                                                          uint32_t columns,
                                                                          const winrt::guid& guid,
                                                                          const winrt::guid& profileGuid);
+        static void ConfigureShellIntegration(const Windows::Foundation::Collections::ValueSet& settings,
+                                              bool enabled,
+                                              ShellIntegrationEnvironmentKind environment,
+                                              const winrt::hstring& wslDistro,
+                                              const winrt::hstring& assetRoot);
+        static void ConfigureShellIntegrationWithUser(const Windows::Foundation::Collections::ValueSet& settings,
+                                                      bool enabled,
+                                                      ShellIntegrationEnvironmentKind environment,
+                                                      const winrt::hstring& wslDistro,
+                                                      const winrt::hstring& wslUser,
+                                                      const winrt::hstring& assetRoot);
+        static void ConfigureShellIntegrationForLaunch(const Windows::Foundation::Collections::ValueSet& settings,
+                                                       bool enabled,
+                                                       const winrt::hstring& assetRoot);
 
         til::event<TerminalOutputHandler> TerminalOutput;
 
@@ -59,7 +80,10 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
         static HRESULT NewHandoff(HANDLE* in, HANDLE* out, HANDLE signal, HANDLE reference, HANDLE server, HANDLE client, const TERMINAL_STARTUP_INFO* startupInfo) noexcept;
         static winrt::hstring _commandlineFromProcess(HANDLE process);
 
-        void _LaunchAttachedClient();
+        void _LaunchAttachedClient(std::optional<::Microsoft::Terminal::TerminalConnection::ShellIntegration::PreparedLaunch> preparedLaunch);
+        void _Start(std::optional<::Microsoft::Terminal::TerminalConnection::ShellIntegration::PreparedLaunch> preparedLaunch,
+                    bool alreadyConnecting);
+        safe_void_coroutine _StartWithWslDiscovery();
         void _indicateExitWithStatus(unsigned int status) noexcept;
         static std::wstring _formatStatus(uint32_t status);
         void _LastConPtyClientDisconnected() noexcept;
@@ -70,6 +94,13 @@ namespace winrt::Microsoft::Terminal::TerminalConnection::implementation
         hstring _commandline{};
         hstring _startingDirectory{};
         hstring _startingTitle{};
+        bool _shellIntegrationEnabled{ false };
+        bool _shellIntegrationAutomatic{ false };
+        ShellIntegrationEnvironmentKind _shellIntegrationEnvironment{ ShellIntegrationEnvironmentKind::Unsupported };
+        hstring _shellIntegrationWslDistro{};
+        hstring _shellIntegrationWslUser{};
+        hstring _shellIntegrationAssetRoot{};
+        std::stop_source _startCancellation;
         bool _initialVisibility{ true };
         Windows::Foundation::Collections::ValueSet _environment{ nullptr };
         hstring _clientName{}; // The name of the process hosted by this ConPTY connection (as of launch).

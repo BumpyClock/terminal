@@ -1,0 +1,311 @@
+<!--
+    Copyright (c) Microsoft Corporation. All rights reserved. Licensed under
+    the MIT License. See LICENSE in the project root for license information.
+-->
+<UserControl x:Class="TerminalApp.StatusBarControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             IsTabStop="False"
+             AutomationProperties.AccessibilityView="Raw"
+             AutomationProperties.LiveSetting="Off"
+             SizeChanged="_OnSizeChanged"
+             mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#1B1B1B" />
+                    <SolidColorBrush x:Key="StatusBarForegroundBrush" Color="#D8D8D8" />
+                    <SolidColorBrush x:Key="StatusBarDimForegroundBrush" Color="#A8A8A8" />
+                    <SolidColorBrush x:Key="StatusBarSeparatorBrush" Color="#1AFFFFFF" />
+                    <SolidColorBrush x:Key="StatusBarAddedBrush" Color="#89B482" />
+                    <SolidColorBrush x:Key="StatusBarDeletedBrush" Color="#E08C86" />
+                    <SolidColorBrush x:Key="StatusBarStagedBrush" Color="#89B482" />
+                    <SolidColorBrush x:Key="StatusBarUnstagedBrush" Color="#D7B06A" />
+                    <SolidColorBrush x:Key="StatusBarUntrackedBrush" Color="#8FB8D8" />
+                    <SolidColorBrush x:Key="StatusBarConflictBrush" Color="#E08C86" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#F3F3F3" />
+                    <SolidColorBrush x:Key="StatusBarForegroundBrush" Color="#242424" />
+                    <SolidColorBrush x:Key="StatusBarDimForegroundBrush" Color="#5B5B5B" />
+                    <SolidColorBrush x:Key="StatusBarSeparatorBrush" Color="#26000000" />
+                    <SolidColorBrush x:Key="StatusBarAddedBrush" Color="#267326" />
+                    <SolidColorBrush x:Key="StatusBarDeletedBrush" Color="#B42318" />
+                    <SolidColorBrush x:Key="StatusBarStagedBrush" Color="#267326" />
+                    <SolidColorBrush x:Key="StatusBarUnstagedBrush" Color="#7A4E00" />
+                    <SolidColorBrush x:Key="StatusBarUntrackedBrush" Color="#00659B" />
+                    <SolidColorBrush x:Key="StatusBarConflictBrush" Color="#B42318" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="StatusBarBackgroundBrush"
+                                     Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="StatusBarForegroundBrush"
+                                     Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="StatusBarDimForegroundBrush"
+                                     Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="StatusBarSeparatorBrush"
+                                     Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="StatusBarAddedBrush"
+                                     Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="StatusBarDeletedBrush"
+                                     Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="StatusBarStagedBrush"
+                                     Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="StatusBarUnstagedBrush"
+                                     Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="StatusBarUntrackedBrush"
+                                     Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="StatusBarConflictBrush"
+                                     Color="{ThemeResource SystemColorWindowTextColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Border Padding="10,0"
+            Background="{ThemeResource StatusBarBackgroundBrush}">
+        <Grid x:Name="GitContent"
+              HorizontalAlignment="Left"
+              AutomationProperties.AccessibilityView="Raw"
+              Visibility="Collapsed">
+            <StackPanel x:Name="Rail"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="10">
+                <StackPanel x:Name="IdentityGroup"
+                            MinWidth="0"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="6">
+                    <Viewbox x:Name="BranchIcon"
+                             Width="12"
+                             Height="12"
+                             VerticalAlignment="Center">
+                        <Canvas Width="16"
+                                Height="16">
+                            <Ellipse Width="3.4"
+                                     Height="3.4"
+                                     Canvas.Left="2.8"
+                                     Canvas.Top="1.5"
+                                     Stroke="{ThemeResource StatusBarForegroundBrush}"
+                                     StrokeThickness="1.5" />
+                            <Ellipse Width="3.4"
+                                     Height="3.4"
+                                     Canvas.Left="2.8"
+                                     Canvas.Top="11.1"
+                                     Stroke="{ThemeResource StatusBarForegroundBrush}"
+                                     StrokeThickness="1.5" />
+                            <Ellipse Width="3.4"
+                                     Height="3.4"
+                                     Canvas.Left="9.8"
+                                     Canvas.Top="1.5"
+                                     Stroke="{ThemeResource StatusBarForegroundBrush}"
+                                     StrokeThickness="1.5" />
+                            <Path Data="M4.5,4.9 L4.5,11.1 M11.5,4.9 L11.5,5.7 C11.5,7.8 9.9,8.7 8.1,9.1 C6.2,9.6 4.5,10.2 4.5,12"
+                                  Stroke="{ThemeResource StatusBarForegroundBrush}"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  StrokeStartLineCap="Round"
+                                  StrokeThickness="1.5" />
+                        </Canvas>
+                    </Viewbox>
+
+                    <Viewbox x:Name="DetachedIcon"
+                             Width="12"
+                             Height="12"
+                             VerticalAlignment="Center"
+                             Visibility="Collapsed">
+                        <Canvas Width="16"
+                                Height="16">
+                            <Ellipse Width="4.2"
+                                     Height="4.2"
+                                     Canvas.Left="5.9"
+                                     Canvas.Top="5.9"
+                                     Stroke="{ThemeResource StatusBarForegroundBrush}"
+                                     StrokeThickness="1.5" />
+                            <Path Data="M2.4,8 L5.7,8 M10.3,8 L13.6,8"
+                                  Stroke="{ThemeResource StatusBarForegroundBrush}"
+                                  StrokeEndLineCap="Round"
+                                  StrokeStartLineCap="Round"
+                                  StrokeThickness="1.5" />
+                        </Canvas>
+                    </Viewbox>
+
+                    <TextBlock x:Name="BranchText"
+                               MinWidth="24"
+                               MaxWidth="300"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource StatusBarForegroundBrush}"
+                               FontSize="12"
+                               MaxLines="1"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap" />
+                </StackPanel>
+
+                <StackPanel x:Name="TrackingGroup"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            Visibility="Collapsed">
+                    <StackPanel x:Name="AheadItem"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="3"
+                                Visibility="Collapsed">
+                        <Viewbox Width="12"
+                                 Height="12">
+                            <Canvas Width="16"
+                                    Height="16">
+                                <Path Data="M8,12.6 L8,3.6 M4.6,7 L8,3.5 L11.4,7"
+                                      Stroke="{ThemeResource StatusBarDimForegroundBrush}"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      StrokeStartLineCap="Round"
+                                      StrokeThickness="1.5" />
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock x:Name="AheadText"
+                                   Foreground="{ThemeResource StatusBarDimForegroundBrush}"
+                                   FontSize="12"
+                                   MaxLines="1"
+                                   TextWrapping="NoWrap" />
+                    </StackPanel>
+
+                    <StackPanel x:Name="BehindItem"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="3"
+                                Visibility="Collapsed">
+                        <Viewbox Width="12"
+                                 Height="12">
+                            <Canvas Width="16"
+                                    Height="16">
+                                <Path Data="M8,3.4 L8,12.4 M4.6,9 L8,12.5 L11.4,9"
+                                      Stroke="{ThemeResource StatusBarDimForegroundBrush}"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      StrokeStartLineCap="Round"
+                                      StrokeThickness="1.5" />
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock x:Name="BehindText"
+                                   Foreground="{ThemeResource StatusBarDimForegroundBrush}"
+                                   FontSize="12"
+                                   MaxLines="1"
+                                   TextWrapping="NoWrap" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Border x:Name="LineSeparator"
+                        Width="1"
+                        Height="12"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource StatusBarSeparatorBrush}"
+                        Visibility="Collapsed" />
+
+                <StackPanel x:Name="LinesGroup"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="9"
+                            Visibility="Collapsed">
+                    <TextBlock x:Name="AddedItem"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource StatusBarAddedBrush}"
+                               FontSize="12"
+                               MaxLines="1"
+                               TextWrapping="NoWrap"
+                               Visibility="Collapsed" />
+                    <TextBlock x:Name="DeletedItem"
+                               VerticalAlignment="Center"
+                               Foreground="{ThemeResource StatusBarDeletedBrush}"
+                               FontSize="12"
+                               MaxLines="1"
+                               TextWrapping="NoWrap"
+                               Visibility="Collapsed" />
+                </StackPanel>
+
+                <Border x:Name="StateSeparator"
+                        Width="1"
+                        Height="12"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource StatusBarSeparatorBrush}"
+                        Visibility="Collapsed" />
+
+                <StackPanel x:Name="StatesGroup"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="9"
+                            Visibility="Collapsed">
+                    <Viewbox x:Name="ConflictedItem"
+                             Width="12"
+                             Height="12"
+                             VerticalAlignment="Center"
+                             Visibility="Collapsed">
+                        <Canvas Width="16"
+                                Height="16">
+                            <Path Data="M8,2.9 L13.9,13.1 L2.1,13.1 Z M8,6.7 L8,9.8 M8,11.5 L8,11.7"
+                                  Stroke="{ThemeResource StatusBarConflictBrush}"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  StrokeStartLineCap="Round"
+                                  StrokeThickness="1.7" />
+                        </Canvas>
+                    </Viewbox>
+
+                    <Viewbox x:Name="StagedItem"
+                             Width="12"
+                             Height="12"
+                             VerticalAlignment="Center"
+                             Visibility="Collapsed">
+                        <Canvas Width="16"
+                                Height="16">
+                            <Path Data="M2.9,8.4 L6.2,11.7 L13.1,4.7"
+                                  Stroke="{ThemeResource StatusBarStagedBrush}"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  StrokeStartLineCap="Round"
+                                  StrokeThickness="1.5" />
+                        </Canvas>
+                    </Viewbox>
+
+                    <Viewbox x:Name="UnstagedItem"
+                             Width="12"
+                             Height="12"
+                             VerticalAlignment="Center"
+                             Visibility="Collapsed">
+                        <Canvas Width="16"
+                                Height="16">
+                            <Path Data="M10.6,2.7 L13.3,5.4 L5.6,13.1 L2.3,13.7 L2.9,10.4 Z"
+                                  Stroke="{ThemeResource StatusBarUnstagedBrush}"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  StrokeStartLineCap="Round"
+                                  StrokeThickness="1.5" />
+                        </Canvas>
+                    </Viewbox>
+
+                    <Viewbox x:Name="UntrackedItem"
+                             Width="12"
+                             Height="12"
+                             VerticalAlignment="Center"
+                             Visibility="Collapsed">
+                        <Canvas Width="16"
+                                Height="16">
+                            <Path Data="M5.2,5.6 C5.55,4.45 6.62,3.65 8,3.65 C9.62,3.65 10.9,4.7 10.9,6.15 C10.9,8.25 8.2,8.5 8.2,10.55 M8.2,13.05 L8.2,13.35"
+                                  Stroke="{ThemeResource StatusBarUntrackedBrush}"
+                                  StrokeEndLineCap="Round"
+                                  StrokeLineJoin="Round"
+                                  StrokeStartLineCap="Round"
+                                  StrokeThickness="1.5" />
+                        </Canvas>
+                    </Viewbox>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

@@ -28,6 +28,7 @@ namespace ControlUnitTests
         TEST_METHOD(InstantiateCore);
         TEST_METHOD(TestInitialize);
         TEST_METHOD(TestAdjustAcrylic);
+        TEST_METHOD(TestShellContextProjection);
 
         TEST_METHOD(TestFreeAfterClose);
 
@@ -204,6 +205,41 @@ namespace ControlUnitTests
         Log::Comment(L"Decreasing opacity more doesn't actually change it to be < 0");
         expectedOpacity = 0.0f;
         core->AdjustOpacity(-0.25f);
+    }
+
+    void ControlCoreTests::TestShellContextProjection()
+    {
+        auto [settings, conn] = _createSettingsAndConnection();
+        GUID sessionId{};
+        VERIFY_SUCCEEDED(CoCreateGuid(&sessionId));
+        conn->sessionId = sessionId;
+        conn->shellIntegrationEnvironment = TerminalConnection::ShellIntegrationEnvironmentKind::Wsl;
+        conn->shellIntegrationWslDistro = L"Ubuntu";
+        conn->shellIntegrationWslUser = L"alice";
+
+        auto core = createCore(*settings, *conn);
+        Control::ShellContextEventArgs observed{ nullptr };
+        core->ShellContextChanged([&](const auto&, const auto& args) {
+            observed = args;
+        });
+
+        ::Microsoft::Terminal::StatusBar::ShellContextReport report;
+        report.pathState = ::Microsoft::Terminal::StatusBar::ShellContextPathState::FileSystem;
+        report.phase = ::Microsoft::Terminal::StatusBar::ShellContextPhase::Prompt;
+        report.path = L"C:\\repo";
+        report.sequence = 7;
+        core->_publishShellContext(report, core->_shellContextConnectionGeneration.load());
+
+        VERIFY_IS_TRUE(static_cast<bool>(observed));
+        VERIFY_ARE_EQUAL(conn->sessionId, observed.ConnectionId());
+        VERIFY_ARE_EQUAL(static_cast<int>(TerminalConnection::ShellIntegrationEnvironmentKind::Wsl), static_cast<int>(observed.Environment()));
+        VERIFY_ARE_EQUAL(winrt::hstring{ L"Ubuntu" }, observed.WslDistro());
+        VERIFY_ARE_EQUAL(winrt::hstring{ L"alice" }, observed.WslUser());
+        VERIFY_ARE_EQUAL(static_cast<int>(Control::ShellContextPathState::FileSystem), static_cast<int>(observed.PathState()));
+        VERIFY_ARE_EQUAL(winrt::hstring{ L"C:\\repo" }, observed.Path());
+        VERIFY_ARE_EQUAL(static_cast<int>(Control::ShellContextPhase::Prompt), static_cast<int>(observed.Phase()));
+        VERIFY_ARE_EQUAL(static_cast<uint64_t>(7), observed.Sequence());
+        VERIFY_ARE_EQUAL(observed.Sequence(), core->ShellContext().Sequence());
     }
 
     void ControlCoreTests::TestFreeAfterClose()

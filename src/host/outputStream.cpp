@@ -335,6 +335,14 @@ void ConhostInternalGetSet::SetWorkingDirectory(const std::wstring_view /*uri*/)
 {
 }
 
+void ConhostInternalGetSet::NotifyShellContextPath(const Microsoft::Terminal::StatusBar::ShellContextPathState /*state*/, const std::wstring_view /*path*/)
+{
+}
+
+void ConhostInternalGetSet::NotifyShellContextPhase(const Microsoft::Terminal::StatusBar::ShellContextPhase /*phase*/)
+{
+}
+
 // Routine Description:
 // - Plays a single MIDI note, blocking for the duration.
 // Arguments:

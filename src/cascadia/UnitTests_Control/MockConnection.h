@@ -9,7 +9,9 @@
 
 namespace ControlUnitTests
 {
-    class MockConnection : public winrt::implements<MockConnection, winrt::Microsoft::Terminal::TerminalConnection::ITerminalConnection>
+    class MockConnection : public winrt::implements<MockConnection,
+                                                     winrt::Microsoft::Terminal::TerminalConnection::ITerminalConnection,
+                                                     winrt::Microsoft::Terminal::TerminalConnection::IShellIntegrationConnectionInfo>
     {
     public:
         MockConnection() noexcept = default;
@@ -23,10 +25,23 @@ namespace ControlUnitTests
         void Resize(uint32_t /*rows*/, uint32_t /*columns*/) noexcept {}
         void Close() noexcept {}
 
-        winrt::guid SessionId() const noexcept { return {}; }
+        winrt::guid SessionId() const noexcept { return sessionId; }
         winrt::Microsoft::Terminal::TerminalConnection::ConnectionState State() const noexcept { return winrt::Microsoft::Terminal::TerminalConnection::ConnectionState::Connected; }
+        bool ShellIntegrationEnabled() const noexcept { return shellIntegrationEnabled; }
+        winrt::Microsoft::Terminal::TerminalConnection::ShellIntegrationEnvironmentKind ShellIntegrationEnvironment() const noexcept { return shellIntegrationEnvironment; }
+        winrt::hstring ShellIntegrationWslDistro() const { return shellIntegrationWslDistro; }
+        winrt::hstring ShellIntegrationWslUser() const { return shellIntegrationWslUser; }
+        winrt::hstring ShellIntegrationAssetRoot() const { return {}; }
 
         til::event<winrt::Microsoft::Terminal::TerminalConnection::TerminalOutputHandler> TerminalOutput;
         til::typed_event<winrt::Microsoft::Terminal::TerminalConnection::ITerminalConnection, IInspectable> StateChanged;
+
+        winrt::guid sessionId{};
+        bool shellIntegrationEnabled{ true };
+        winrt::Microsoft::Terminal::TerminalConnection::ShellIntegrationEnvironmentKind shellIntegrationEnvironment{
+            winrt::Microsoft::Terminal::TerminalConnection::ShellIntegrationEnvironmentKind::LocalWindows
+        };
+        winrt::hstring shellIntegrationWslDistro;
+        winrt::hstring shellIntegrationWslUser;
     };
 }

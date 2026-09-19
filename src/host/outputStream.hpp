@@ -63,6 +63,8 @@ public:
     void CopyToClipboard(const wil::zwstring_view content) override;
     void SetTaskbarProgress(const ::Microsoft::Console::VirtualTerminal::DispatchTypes::TaskbarState state, const size_t progress) override;
     void SetWorkingDirectory(const std::wstring_view uri) override;
+    void NotifyShellContextPath(Microsoft::Terminal::StatusBar::ShellContextPathState state, std::wstring_view path) override;
+    void NotifyShellContextPhase(Microsoft::Terminal::StatusBar::ShellContextPhase phase) override;
     void PlayMidiNote(const int noteNumber, const int velocity, const std::chrono::microseconds duration) override;
 
     bool IsVtInputEnabled() const override;

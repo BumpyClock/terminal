@@ -202,4 +202,11 @@
   <Import Project="$(OpenConsoleDir)\build\rules\GenerateSxsManifestsFromWinmds.targets" />
   <Import Project="$(OpenConsoleDir)src\common.nugetversions.targets" />
 
+  <Import Project="$(MSBuildThisFileDirectory)..\ShellIntegration.build.items" />
+  <Target Name="CopyShellIntegrationAssets" AfterTargets="Build">
+    <Copy SourceFiles="@(TerminalShellIntegrationAsset)"
+          DestinationFiles="@(TerminalShellIntegrationAsset->'$(OutDir)%(TargetPath)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

@@ -129,6 +129,16 @@
             </local:SettingsExpander.Items>
         </local:SettingsExpander>
 
+        <!--  Status bar  -->
+        <local:SettingsCard x:Name="ShowStatusBar"
+                            x:Uid="Globals_ShowStatusBar">
+            <local:SettingsCard.HeaderIcon>
+                <FontIcon Glyph="&#xE943;" />
+            </local:SettingsCard.HeaderIcon>
+            <ToggleSwitch IsOn="{x:Bind ViewModel.ShowStatusBar, Mode=TwoWay}"
+                          Style="{StaticResource ToggleSwitchInExpanderStyle}" />
+        </local:SettingsCard>
+
         <!--  Position of new tab  -->
         <local:SettingsCard x:Name="NewTabPosition"
                             x:Uid="Globals_NewTabPosition">

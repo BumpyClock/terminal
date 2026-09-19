@@ -62,6 +62,20 @@ namespace winrt
     using VirtualKeyModifiers = Windows::System::VirtualKeyModifiers;
 }
 
+namespace
+{
+    winrt::hstring _shellIntegrationAssetRoot()
+    {
+        static const auto root = [] {
+            std::filesystem::path path{ wil::GetModuleFileNameW<std::wstring>(nullptr) };
+            path.remove_filename();
+            path /= L"ShellIntegration";
+            return winrt::hstring{ path.native() };
+        }();
+        return root;
+    }
+}
+
 namespace clipboard
 {
     static SRWLOCK lock = SRWLOCK_INIT;
@@ -229,6 +243,15 @@ namespace winrt::TerminalApp::implementation
         _WindowProperties.PropertyChanged({ get_weak(), &TerminalPage::_windowPropertyChanged });
     }
 
+    TerminalPage::~TerminalPage()
+    {
+        _statusBarShellContextRevoker.revoke();
+        if (_statusBarCoordinator)
+        {
+            _statusBarCoordinator->Close();
+        }
+    }
+
     // Method Description:
     // - implements the IInitializeWithWindow interface from shobjidl_core.
     // - We're going to use this HWND as the owner for the ConPTY windows, via
@@ -296,6 +319,146 @@ namespace winrt::TerminalApp::implementation
         _systemRowsToScroll = _ReadSystemRowsToScroll();
     }
 
+    void TerminalPage::ApplyStatusBarSnapshot(const ::Microsoft::Terminal::StatusBar::StatusBarSnapshot& snapshot)
+    {
+        assert(Dispatcher().HasThreadAccess());
+        _statusBarSnapshot = snapshot;
+        if (_statusBar)
+        {
+            _statusBar->ApplySnapshot(_statusBarSnapshot);
+        }
+    }
+
+    void TerminalPage::_UpdateStatusBar()
+    {
+        if (!_statusBar)
+        {
+            return;
+        }
+
+        const auto enabled{ _settings != nullptr && _settings.GlobalSettings().ShowStatusBar() };
+        const auto presentationVisible{ !_isInFocusMode };
+
+        if (_statusBarCoordinator)
+        {
+            _statusBarCoordinator->UpdateRuntimeState(enabled, presentationVisible, _visible, _activated);
+        }
+        else
+        {
+            auto snapshot{ _statusBarSnapshot };
+            snapshot.visible = snapshot.visible && enabled && presentationVisible;
+            _statusBar->ApplySnapshot(snapshot);
+        }
+    }
+
+    void TerminalPage::_RebindStatusBarToFocusedPane()
+    {
+        _RebindStatusBarToTab(_GetFocusedTab());
+    }
+
+    void TerminalPage::_RebindStatusBarToTab(const winrt::TerminalApp::Tab& focusedTab)
+    {
+        const auto bindingEpoch{ ++_statusBarBindingEpoch };
+        _statusBarShellContextRevoker.revoke();
+        _statusBarObservedControl = nullptr;
+
+        if (!_statusBarCoordinator)
+        {
+            return;
+        }
+
+        _statusBarCoordinator->SetShellContext(std::nullopt);
+
+        if (!focusedTab)
+        {
+            return;
+        }
+
+        const auto tab{ _GetTabImpl(focusedTab) };
+        if (!tab)
+        {
+            return;
+        }
+
+        const auto content{ tab->GetActiveContent() };
+        const auto terminalContent{ content.try_as<TerminalApp::TerminalPaneContent>() };
+        if (!terminalContent)
+        {
+            return;
+        }
+
+        const auto control{ terminalContent.GetTermControl() };
+        if (!control)
+        {
+            return;
+        }
+
+        _statusBarObservedControl = control;
+        _statusBarShellContextRevoker = control.ShellContextChanged(
+            winrt::auto_revoke,
+            [weakThis{ get_weak() }, bindingEpoch](auto&&, const auto& context) {
+                if (const auto page{ weakThis.get() })
+                {
+                    page->_StatusBarShellContextChanged(bindingEpoch, context);
+                }
+            });
+        _PublishStatusBarShellContext(control.ShellContext());
+    }
+
+    void TerminalPage::_StatusBarShellContextChanged(
+        const uint64_t bindingEpoch,
+        const winrt::Microsoft::Terminal::Control::ShellContextEventArgs& context)
+    {
+        if (bindingEpoch != _statusBarBindingEpoch || !_statusBarObservedControl.get())
+        {
+            return;
+        }
+
+        _PublishStatusBarShellContext(context);
+    }
+
+    void TerminalPage::_PublishStatusBarShellContext(const winrt::Microsoft::Terminal::Control::ShellContextEventArgs& context)
+    {
+        if (!_statusBarCoordinator)
+        {
+            return;
+        }
+
+        if (!context)
+        {
+            _statusBarCoordinator->SetShellContext(std::nullopt);
+            return;
+        }
+
+        static_assert(static_cast<uint32_t>(winrt::Microsoft::Terminal::TerminalConnection::ShellIntegrationEnvironmentKind::Wsl) ==
+                      static_cast<uint32_t>(::Microsoft::Terminal::StatusBar::EnvironmentKind::Wsl));
+        static_assert(static_cast<uint32_t>(winrt::Microsoft::Terminal::Control::ShellContextPathState::NonFileSystem) ==
+                      static_cast<uint32_t>(::Microsoft::Terminal::StatusBar::ShellContextPathState::NonFileSystem));
+        static_assert(static_cast<uint32_t>(winrt::Microsoft::Terminal::Control::ShellContextPhase::Output) ==
+                      static_cast<uint32_t>(::Microsoft::Terminal::StatusBar::ShellContextPhase::Output));
+        static_assert(static_cast<uint32_t>(winrt::Microsoft::Terminal::Control::ShellContextProvenance::ShellReported) ==
+                      static_cast<uint32_t>(::Microsoft::Terminal::StatusBar::ShellContextProvenance::ShellReported));
+
+        ::Microsoft::Terminal::StatusBar::ShellContext nativeContext;
+        nativeContext.connectionId = context.ConnectionId();
+        nativeContext.environment.kind = static_cast<::Microsoft::Terminal::StatusBar::EnvironmentKind>(
+            static_cast<uint32_t>(context.Environment()));
+        const auto wslDistro{ context.WslDistro() };
+        nativeContext.environment.wslDistro.assign(wslDistro.c_str(), wslDistro.size());
+        const auto wslUser{ context.WslUser() };
+        nativeContext.environment.wslUser.assign(wslUser.c_str(), wslUser.size());
+        nativeContext.pathState = static_cast<::Microsoft::Terminal::StatusBar::ShellContextPathState>(
+            static_cast<uint32_t>(context.PathState()));
+        nativeContext.phase = static_cast<::Microsoft::Terminal::StatusBar::ShellContextPhase>(
+            static_cast<uint32_t>(context.Phase()));
+        nativeContext.provenance = static_cast<::Microsoft::Terminal::StatusBar::ShellContextProvenance>(
+            static_cast<uint32_t>(context.Provenance()));
+        const auto path{ context.Path() };
+        nativeContext.path.assign(path.c_str(), path.size());
+        nativeContext.sequence = context.Sequence();
+        _statusBarCoordinator->SetShellContext(std::move(nativeContext));
+    }
+
     winrt::Microsoft::Terminal::Settings::Model::WindowSettings TerminalPage::_currentWindowSettings() const
     {
         return _settings.WindowSettings(_WindowProperties.WindowName());
@@ -330,6 +493,16 @@ namespace winrt::TerminalApp::implementation
 
         _tabContent = this->TabContent();
         _tabRow = this->TabRow();
+        _statusBar.copy_from(winrt::get_self<implementation::StatusBarControl>(this->StatusBar()));
+        _statusBarCoordinator = ::TerminalApp::StatusBarCoordinator::CreateForDispatcher(
+            DispatcherQueue::GetForCurrentThread(),
+            ::TerminalApp::GitStatusProvider{},
+            [weakThis{ get_weak() }](::Microsoft::Terminal::StatusBar::StatusBarSnapshot snapshot) {
+                if (const auto page{ weakThis.get() })
+                {
+                    page->ApplyStatusBarSnapshot(snapshot);
+                }
+            });
         _tabView = _tabRow.TabView();
         _rearranging = false;
 
@@ -459,6 +632,7 @@ namespace winrt::TerminalApp::implementation
 
         _isAlwaysOnTop = _currentWindowSettings().AlwaysOnTop();
         _showTabsFullscreen = _currentWindowSettings().ShowTabsFullscreen();
+        _UpdateStatusBar();
 
         // DON'T set up Toasts/TeachingTips here. They should be loaded and
         // initialized the first time they're opened, in whatever method opens
@@ -844,6 +1018,10 @@ namespace winrt::TerminalApp::implementation
         // have a tab yet, but will once we're initialized.
         if (_tabs.Size() == 0)
         {
+            if (_statusBarCoordinator)
+            {
+                _statusBarCoordinator->Close();
+            }
             CloseWindowRequested.raise(*this, nullptr);
             co_return;
         }
@@ -1620,6 +1798,10 @@ namespace winrt::TerminalApp::implementation
                                                                             settings.InitialCols(),
                                                                             winrt::guid(),
                                                                             profile.Guid());
+            TerminalConnection::ConptyConnection::ConfigureShellIntegrationForLaunch(
+                valueSet,
+                _settings.GlobalSettings().ShowStatusBar(),
+                _shellIntegrationAssetRoot());
 
             if (inheritCursor)
             {
@@ -2311,6 +2493,10 @@ namespace winrt::TerminalApp::implementation
             }
         }
 
+        if (_statusBarCoordinator)
+        {
+            _statusBarCoordinator->Close();
+        }
         QuitRequested.raise(nullptr, nullptr);
     }
 
@@ -2511,6 +2697,10 @@ namespace winrt::TerminalApp::implementation
             }
         }
 
+        if (_statusBarCoordinator)
+        {
+            _statusBarCoordinator->Close();
+        }
         CloseWindowRequested.raise(*this, nullptr);
     }
 
@@ -2799,6 +2989,11 @@ namespace winrt::TerminalApp::implementation
 
             auto profile = tab->GetFocusedProfile();
             _UpdateBackground(profile);
+        }
+
+        if (sender == _GetFocusedTab())
+        {
+            _RebindStatusBarToTab(sender);
         }
 
         _adjustProcessPriorityThrottled->Run();
@@ -3112,6 +3307,13 @@ namespace winrt::TerminalApp::implementation
         {
             if (const auto tabImpl{ _GetFocusedTabImpl() })
             {
+                if (!widthOrHeight && _statusBar && _statusBar->Visibility() == Visibility::Visible)
+                {
+                    const auto statusBarHeight{ std::max(static_cast<float>(_statusBar->ActualHeight()),
+                                                        static_cast<float>(::TerminalApp::StatusBarPresentation::MinimumRowHeight)) };
+                    const auto contentHeight{ std::max(0.0f, dimension - statusBarHeight) };
+                    return tabImpl->CalcSnappedDimension(widthOrHeight, contentHeight) + statusBarHeight;
+                }
                 return tabImpl->CalcSnappedDimension(widthOrHeight, dimension);
             }
         }
@@ -4130,6 +4332,7 @@ namespace winrt::TerminalApp::implementation
         AlwaysOnTopChanged.raise(*this, nullptr);
 
         _showTabsFullscreen = _currentWindowSettings().ShowTabsFullscreen();
+        _UpdateStatusBar();
 
         // Settings AllowDependentAnimations will affect whether animations are
         // enabled application-wide, so we don't need to check it each time we
@@ -4277,6 +4480,7 @@ namespace winrt::TerminalApp::implementation
     void TerminalPage::WindowVisibilityChanged(const bool showOrHide)
     {
         _visible = showOrHide;
+        _UpdateStatusBar();
         for (const auto& tab : _tabs)
         {
             if (auto tabImpl{ _GetTabImpl(tab) })
@@ -4328,6 +4532,7 @@ namespace winrt::TerminalApp::implementation
         {
             _isInFocusMode = newInFocusMode;
             _UpdateTabView();
+            _UpdateStatusBar();
             FocusModeChanged.raise(*this, nullptr);
         }
     }
@@ -5349,6 +5554,7 @@ namespace winrt::TerminalApp::implementation
         // Stash if we're activated. Use that when we reload
         // the settings, change active panes, etc.
         _activated = activated;
+        _UpdateStatusBar();
         _updateThemeColors();
 
         _adjustProcessPriorityThrottled->Run();

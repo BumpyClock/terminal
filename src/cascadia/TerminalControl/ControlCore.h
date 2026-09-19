@@ -167,6 +167,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         hstring Title();
         Windows::Foundation::IReference<winrt::Windows::UI::Color> TabColor() noexcept;
         hstring WorkingDirectory() const;
+        Control::ShellContextEventArgs ShellContext() const;
 
         TerminalConnection::ConnectionState ConnectionState() const;
 
@@ -273,6 +274,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         til::typed_event<IInspectable, Control::FontSizeChangedArgs> FontSizeChanged;
 
         til::typed_event<IInspectable, Control::TitleChangedEventArgs> TitleChanged;
+        til::typed_event<IInspectable, Control::ShellContextEventArgs> ShellContextChanged;
         til::typed_event<IInspectable, Control::WriteToClipboardEventArgs> WriteToClipboard;
         til::typed_event<> WarningBell;
         til::typed_event<> TabColorChanged;
@@ -326,6 +328,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
 #pragma region TerminalCoreCallbacks
         void _terminalWarningBell();
         void _terminalTitleChanged(std::wstring_view wstr);
+        void _publishShellContext(::Microsoft::Terminal::StatusBar::ShellContextReport report, uint64_t connectionGeneration);
         void _terminalScrollPositionChanged(const int viewTop,
                                             const int viewHeight,
                                             const int bufferSize);
@@ -412,6 +415,9 @@ namespace winrt::Microsoft::Terminal::Control::implementation
 
         // Other stuff.
         winrt::Windows::System::DispatcherQueue _dispatcher{ nullptr };
+        std::mutex _shellContextDispatcherMutex;
+        winrt::Windows::System::DispatcherQueue _shellContextDispatcher{ nullptr };
+        std::atomic<uint64_t> _shellContextDispatcherGeneration{ 0 };
         IControlSettings _settings{ nullptr };
         bool _hasUnfocusedAppearance{ false };
         IControlAppearance _unfocusedAppearance{ nullptr };
@@ -424,6 +430,10 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         std::optional<til::point> _lastHoveredCell;
         uint16_t _lastHoveredId{ 0 };
         std::atomic<bool> _initializedTerminal{ false };
+        std::atomic<uint64_t> _shellContextConnectionGeneration{ 0 };
+        std::mutex _shellContextReportMutex;
+        std::optional<std::pair<uint64_t, ::Microsoft::Terminal::StatusBar::ShellContextReport>> _latestShellContextReport;
+        Control::ShellContextEventArgs _shellContext{ nullptr };
         bool _isReadOnly{ false };
         bool _closing{ false };
 

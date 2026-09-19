@@ -32,6 +32,7 @@
     "focusFollowMouse": false,
     "minimizeToNotificationArea": false,
     "alwaysShowNotificationIcon": false,
+    "showStatusBar": true,
 
     "profiles":
     [
